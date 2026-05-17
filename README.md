@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📈 Invest Smarter (Smart Investor)
 
-## Getting Started
+An advanced, AI-powered quantitative stock and ETF screener, portfolio manager, and market intelligence platform built for modern investors.
 
-First, run the development server:
+![Invest Smarter](/public/window.svg) <!-- Replace with actual screenshot later -->
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Key Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **🤖 AI-Powered Analysis**: Integrated with Google Gemini to provide instant, real-time quantitative insights, pros/cons, investor suitability, and verdicts for any stock or ETF.
+- **📊 Advanced Screeners**: Highly interactive ETF and S&P 500 screeners. Filter by custom metrics like "Hunter Score", Quality Score, Momentum (RSI), FCF Yield, and Expense Ratios.
+- **🏷️ Smart Intel Tags**: Instantly identify market positioning with automated strategy tags like *Value Trap*, *Opportunity Window*, *Cash Cow*, and *Balanced Compounder*.
+- **💼 Portfolio Management**: Build, track, and optimize asset allocations. Includes pre-built strategy templates and deep analytics.
+- **📰 Market News & RSS Feeds**: Keep a pulse on the macro environment with integrated sentiment gauges and sparkline charts.
+- **🔐 Secure Admin & User Management**: Full authentication flow, settings configuration (store API keys securely in-database), and user management.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework**: [Next.js](https://nextjs.org/) (App Router)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/)
+- **UI Components**: [shadcn/ui](https://ui.shadcn.com/)
+- **Database / ORM**: [Prisma](https://www.prisma.io/) + PostgreSQL
+- **AI Integration**: [Google Generative AI SDK](https://sdk.vercel.ai/docs/introduction) (`@ai-sdk/google`)
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
 
-## Learn More
+## 🚀 Getting Started
 
-To learn more about Next.js, take a look at the following resources:
+### Prerequisites
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Ensure you have Node.js 18+ and a PostgreSQL database running.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Installation
 
-## Deploy on Vercel
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/enenkei/smart-investor-frontend.git
+   cd invest-smarter
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. Install dependencies:
+   ```bash
+   npm install
+   # or yarn / pnpm / bun install
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. Set up Environment Variables:
+   Create a `.env` file in the root directory based on your environment:
+   ```env
+   DATABASE_URL="postgresql://user:password@localhost:5432/invest_smarter"
+   # Add any NextAuth secrets or other required variables
+   ```
+
+4. Initialize the Database:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   # or npx prisma migrate dev
+   ```
+
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## 🧠 AI Configuration
+
+The application requires an AI model to run quantitative analysis on the screeners. 
+Instead of `.env` files, API keys and model selections (e.g., `gemini-3.1-flash-lite`) are securely stored in the PostgreSQL database via the **Admin Settings Dashboard**. Ensure you configure your Google Generative AI API key in the UI before triggering an analysis.
+
+## 🤝 Contributing
+
+Feedback, bug reports, and pull requests are welcome!
+
+## 📄 License
+
+This project is licensed under the MIT License.
