@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model FundamentalScores {
+  ticker                String    @id
+  sector                String?
+  pe_ratio              Float?
+  revenue_growth        Float?
+  dividend_yield        Float?
+  payout_ratio          Float?
+  beta                  Float?
+  market_cap            Float?
+  free_cash_flow        Float?
+  roe                   Float?
+  de_ratio              Float?
+  dividend_cagr_5y      Float?
+  eps_growth_5y         Float?
+  last_updated          String?
+  operating_margins     Float?
+  ebitda                Float?
+  current_ratio         Float?
+  name                  String?
+  total_return          Float?
+  fcf_yield             Float?
+  quality_metric        Float?
+  safety_metric         Float?
+  growth_score          Float?
+  income_score          Float?
+  quality_score         Float?
+  dividend_growth_score Float?
+  rsi                   Float?
+  adaptive_total_score  Float?
+  updated_at            DateTime?
+  current_price         Float?
+  prev_close            Float?
+  one_day_change        Float?
+
+  @@unique([ticker, sector], map: "ticker_sector_unique")
+  @@map("fundamental_scores")
+}
+
+model EconomicIndicator {
+  id         Int       @id @default(autoincrement())
+  indicator  String?   @unique
+  name       String?
+  interval   String?
+  unit       String?
+  data       Json?
+  fetched_at DateTime? @default(now())
+
+  @@map("economic_indicator")
+}
+
+model EtfMetadata {
+  id                               Int       @id @default(autoincrement())
+  symbol                           String?
+  etf_name                         String
+  asset_class                      String?
+  etf_database_category            String?
+  sector                           String?
+  inception                        DateTime?
+  total_assets                     Float?
+  avg_daily_volume                 Float?
+  previous_closing_price           Float?
+  ytd_price_change                 Float?
+  one_day_change                   Float?
+  one_week_perf                    Float?
+  one_month_perf                   Float?
+  one_year_perf                    Float?
+  three_year_perf                  Float?
+  five_year_perf                   Float?
+  ytd_ff                           Float?
+  one_week_ff                      Float?
+  four_week_ff                     Float?
+  one_year_ff                      Float?
+  three_year_ff                    Float?
+  five_year_ff                     Float?
+  is_inverse                       Boolean?  @default(false)
+  is_leveraged                     Boolean?  @default(false)
+  expense_ratio                    Float?
+  commission_free                  Boolean?
+  num_of_holdings                  Int?
+  pct_in_top_10                    Float?
+  annual_dividend_rate             Float?
+  dividend_date                    DateTime?
+  last_dividend_amount             Float?
+  annual_dividend_yield_pct        Float?
+  pe_ratio                         Float?
+  beta                             Float?
+  rsi                              Float?
+  st_cap_gain_rate                 Float?
+  lt_cap_gain_rate                 Float?
+  tax_form                         String?
+  lower_bollinger                  Float?
+  upper_bollinger                  Float?
+  support_1                        Float?
+  resistance_1                     Float?
+  liquidity_rating                 String?
+  expenses_rating                  String?
+  returns_rating                   String?
+  volatility_rating                String?
+  dividend_rating                  String?
+  concentration_rating             String?
+  esg_score                        Float?
+  esg_peer_percentile              Float?
+  esg_global_percentile            Float?
+  carbon_intensity                 Float?
+  sri_exclusion_pct                Float?
+  sustainable_impact_solutions_pct Float?
+  updated_at                       DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([symbol, sector])
+  @@map("etf_metadata")
+}
+
+model MarketNews {
+  url                     String    @id
+  title                   String
+  summary                 String?
+  banner_image            String?
+  source                  String?
+  source_domain           String?
+  category                String?
+  time_published          DateTime?
+  fetched_at              DateTime? @default(now())
+  overall_sentiment_score Float?
+  overall_sentiment_label String?
+  authors                 Json?
+  topics                  Json?
+  ticker_sentiment        Json?
+
+  @@index([ticker_sentiment], map: "idx_news_ticker_sentiment", type: Gin)
+  @@map("market_news")
+}
+
+model RssFeed {
+  id            Int       @id @default(autoincrement())
+  category      String?
+  name          String?
+  url           String?
+  last_updated  DateTime?
+  retries       Int?      @default(0)
+  last_error    String?
+  last_error_at DateTime?
+  is_active     Boolean?  @default(true)
+  rss_item      RssItem[]
+
+  @@unique([category, name], map: "catetory_name_cnstr")
+  @@map("rss_feed")
+}
+
+model RssItem {
+  id           Int       @id @default(autoincrement())
+  feed_id      Int?
+  guid         String?
+  title        String
+  link         String
+  summary      String?
+  author       String?
+  published_at DateTime?
+  fetched_at   DateTime? @default(now())
+  rss_feed     RssFeed?  @relation(fields: [feed_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([feed_id, guid])
+  @@map("rss_item")
+}
+
+model tickers {
+  symbol       String  @id
+  company_name String?
+  exchange     String?
+}
+
+// model Sp500Ticker {
+//   Symbol            String? @unique(map: "symbol_unique")
+//   Security          String?
+//   GICS_Sector       String? @map("GICS Sector")
+//   GICS_Sub_Industry String? @map("GICS Sub-Industry")
+//   id                Int     @id @default(autoincrement())
+
+//   @@map("sp500_tickers")
+// }
+
+model company_overview {
+  ticker             String    @id
+  name               String?
+  description        String?
+  sector             String?
+  industry           String?
+  moving_average_50  String?
+  moving_average_200 String?
+  updated_at         DateTime? @default(now())
+  dividend_per_share String?
+  dividend_yield     String?
+}
+
+model fundamentals {
+  ticker            String  @id
+  sector            String?
+  pe_ratio          Float?
+  revenue_growth    Float?
+  dividend_yield    Float?
+  payout_ratio      Float?
+  beta              Float?
+  market_cap        Float?
+  free_cash_flow    Float?
+  roe               Float?
+  de_ratio          Float?
+  dividend_cagr_5y  Float?
+  eps_growth_5y     Float?
+  last_updated      String?
+  operating_margins Float?
+  ebitda            Float?
+  current_ratio     Float?
+}
+
+model insider_transactions {
+  id               Int       @id @default(autoincrement())
+  ticker           String?
+  executive        String?
+  position         String?
+  date             String?
+  transaction_type String?
+  shares_traded    String?
+  price            String?
+  updated_at       DateTime? @default(now())
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String
+  role          Role      @default(USER)
+  resetToken    String?   @unique
+  resetTokenExp DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  avatarUrl     String?
+  fullName      String?
+  pseudo        String?
+  sessionId     String?   @unique
+  isActive      Boolean?  @default(false) @map("is_active")
+
+  @@map("users")
+}
+
+model SystemSetting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  name        String?
+  description String?
+  value       String
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_setting")
+}
+
+model commodities {
+  commodity    String    @id
+  name         String?
+  data         Json?
+  last_updated DateTime? @default(now())
+  interval     String?
+}
+
+model index_data {
+  symbol       String    @id
+  name         String?
+  data         Json?
+  last_updated DateTime? @default(now())
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model portfolio_holdings {
+  id                   Int       @id @default(autoincrement())
+  cik                  String
+  ticker               String
+  cusip                String?
+  shares_count         Float?
+  position_value       Float?
+  percent_of_portfolio Float?
+  report_date          DateTime
+  filed_at             DateTime?
+  updated_at           DateTime  @default(now()) @updatedAt
+
+  @@map("portfolio_holdings")
+}
+
+model strategies {
+  slug                String   @id
+  display_name        String
+  tickers             String[]
+  weights             Json
+  expected_return     Float
+  expected_volatility Float
+  updated_at          DateTime @default(now()) @updatedAt
+  mode                String
+
+  @@map("strategies")
+}
+
+model investor_directory {
+  cik            String   @id @unique
+  display_name   String?
+  legal_name     String?
+  investor_type  String?  @default("Institutional")
+  is_active      Boolean  @default(true)
+  last_sync_date DateTime @default(now())
+  updated_at     DateTime @default(now()) @updatedAt
+
+  @@map("investor_directory")
+}
+
+model user_portfolio {
+  id          Int           @id @default(autoincrement())
+  owner_id    Int
+  owner_name  String?
+  name        String?
+  updated_at  DateTime      @updatedAt
+  userAssets  user_assets[]
+  projections Json
+  metrics     Json
+
+  @@unique([owner_id, name])
+  @@map("user_portfolio")
+}
+
+model user_assets {
+  id             Int            @id @default(autoincrement())
+  symbol         String
+  shares         Float?
+  avg_cost_basis Float?
+  weight         Float?
+  owner_id       Int
+  portfolio_id   Int
+  owner_name     String?
+  updated_at     DateTime       @updatedAt
+  portfolio      user_portfolio @relation(fields: [portfolio_id], references: [id])
+
+  @@unique([owner_id, portfolio_id, symbol])
+  @@map("user_assets")
+}
+
+model watchlist {
+  id         Int      @id @default(autoincrement())
+  owner_id   Int
+  owner_name String?
+  symbol     String
+  added_at   DateTime @default(now()) @updatedAt
+
+  @@unique([owner_id, symbol])
+  @@map("watchlist")
+}
