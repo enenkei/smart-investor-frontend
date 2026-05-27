@@ -70,7 +70,7 @@ export async function addAsset(symbol: string) {
 
     await prisma.watchlist.upsert({
         where: {
-            owner_id_symbol: { owner_id: userId, symbol: symbol }
+            owner_id_symbol: { owner_id: parseInt(userId), symbol: symbol }
         },
         update: {
             symbol: symbol.toUpperCase(),
@@ -283,6 +283,7 @@ export async function saveOptimizationToPortfolio(input: SaveOptimizationInput, 
                 name: input.name,
                 projections: input.projections as any,
                 metrics: input.metrics as any,
+                performance_tracking: {}
             },
         });
     }
@@ -376,4 +377,26 @@ export async function clearWatchlist() {
     revalidatePath("/portfolio");
 }
 
+export async function savePerformanceResultToPortfolio(portfolioId: number, result: any) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+    const userId = (session.user as any).id;
+    if (!userId) throw new Error("Unauthorized");
 
+    // @ts-ignore
+    await prisma.user_portfolio.update({
+        where: { id: portfolioId, owner_id: parseInt(userId) },
+        data: {
+            annual_return: result.metrics.portfolio_return_1y ?? null,
+            volatility: result.metrics.portfolio_volatility_1y ?? null,
+            sharpe_ratio: result.metrics.sharpe_ratio ?? null,
+            max_drawdown: result.metrics.max_drawdown ?? null,
+            empirical_beta: result.metrics.empirical_beta ?? null,
+            diversification: result.metrics.diversification_score ?? null,
+            rating: result.health.grade ?? null,
+            performance_tracking: result as any
+        }
+    });
+
+    revalidatePath("/portfolio");
+}

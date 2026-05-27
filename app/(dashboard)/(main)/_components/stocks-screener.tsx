@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sp500FilterSidebar } from "@/app/(dashboard)/(main)/_components/screener/sp-500-filter-sidebar";
 import { Sp500Visualization } from "@/app/(dashboard)/(main)/_components/screener/sp-500-visualization";
 import { Sp500IntelTable } from "@/app/(dashboard)/(main)/_components/screener/sp-500-intel-table";
+import { StockDiscoveryTabs } from "@/app/(dashboard)/(main)/_components/screener/stock-discovery-tabs";
 import { getStocksSectors, getStocks } from "@/controllers/stock-data-controller";
 import { Target, TrendingDown, Zap } from "lucide-react";
 
@@ -126,6 +127,12 @@ const StocksScreener = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Discovery Section */}
+                <StockDiscoveryTabs
+                    onSelectSymbol={handleSelectSymbol}
+                    selectedSymbol={selectedSymbol}
+                />
 
                 {/* Visualization Section */}
                 <section className={loading ? "opacity-50 pointer-events-none" : "animate-in fade-in slide-in-from-top-4 duration-700 bg-card/10 p-6 border border-border/30 rounded-none"}>

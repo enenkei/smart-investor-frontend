@@ -84,7 +84,8 @@ const UserPortfolio = (props: { setPortfolioId: (id: number) => void }) => {
         }
     };
 
-    const selectedPortfolioName = userPortfolios.find(p => p.id === Number(selectedPortfolioId))?.name;
+    const selectedPortfolio = userPortfolios.find(p => p.id === Number(selectedPortfolioId));
+    const selectedPortfolioName = selectedPortfolio?.name;
 
     return (
         <div className="flex flex-col h-full">
@@ -93,7 +94,7 @@ const UserPortfolio = (props: { setPortfolioId: (id: number) => void }) => {
                     <CardTitle className="text-xl font-black tracking-tighter uppercase italic text-primary">Portfolio History</CardTitle>
                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mt-1">View your saved allocations</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-5">
                     <div className="w-64">
                         <Select value={selectedPortfolioId} onValueChange={handlePortfolioChange}>
                             <SelectTrigger className="rounded-none bg-background/50 border-border/50 font-bold">
@@ -113,13 +114,75 @@ const UserPortfolio = (props: { setPortfolioId: (id: number) => void }) => {
                             variant="ghost"
                             size="icon"
                             onClick={() => setConfirmDialogOpen(true)}
-                            className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-none border border-border/50"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-none border border-border/50"
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     )}
                 </div>
             </CardHeader>
+
+            {/* Performance metrics banner */}
+            {selectedPortfolio && (
+                <div className="border-b border-border/50 bg-muted/5 px-6 py-3 flex flex-wrap gap-4 items-center justify-between">
+                    {selectedPortfolio.annual_return !== null && selectedPortfolio.annual_return !== undefined ? (
+                        <div className="w-full grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 text-xs">
+                            {selectedPortfolio.rating && (
+                                <div className="border border-border/50 bg-card/40 p-2 flex flex-col items-center justify-center">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Grade</span>
+                                    <span className="text-sm font-black text-primary font-mono mt-0.5">{selectedPortfolio.rating}</span>
+                                </div>
+                            )}
+                            <div className="border border-border/50 bg-card/40 p-2 flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Annual Return</span>
+                                <span className="text-sm font-black text-emerald-400 font-mono mt-0.5">
+                                    +{((selectedPortfolio.annual_return as number) * 100).toFixed(2)}%
+                                </span>
+                            </div>
+                            <div className="border border-border/50 bg-card/40 p-2 flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Volatility</span>
+                                <span className="text-sm font-black text-violet-400 font-mono mt-0.5">
+                                    {((selectedPortfolio.volatility as number) * 100).toFixed(2)}%
+                                </span>
+                            </div>
+                            <div className="border border-border/50 bg-card/40 p-2 flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Sharpe Ratio</span>
+                                <span className="text-sm font-black text-foreground font-mono mt-0.5">
+                                    {(selectedPortfolio.sharpe_ratio as number).toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="border border-border/50 bg-card/40 p-2 flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Max Drawdown</span>
+                                <span className="text-sm font-black text-rose-400 font-mono mt-0.5">
+                                    {((selectedPortfolio.max_drawdown as number) * 100).toFixed(2)}%
+                                </span>
+                            </div>
+                            <div className="border border-border/50 bg-card/40 p-2 flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Empirical Beta</span>
+                                <span className="text-sm font-black text-cyan-400 font-mono mt-0.5">
+                                    {(selectedPortfolio.empirical_beta as number).toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="border border-border/50 bg-card/40 p-2 flex flex-col">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Diversification</span>
+                                <span className="text-sm font-black text-emerald-400 font-mono mt-0.5">
+                                    {(selectedPortfolio.diversification as number).toFixed(1)}
+                                </span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-full flex items-center justify-between text-[11px] text-muted-foreground py-1">
+                            <span className="flex items-center gap-1.5 font-medium">
+                                💡 This portfolio has no performance diagnostics calculated yet.
+                            </span>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-primary/70">
+                                Click "Track Performance" above to analyze!
+                            </span>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="flex-1 p-0">
                 <DataTable columns={columns} data={assets} />
             </div>

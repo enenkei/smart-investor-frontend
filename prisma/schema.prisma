@@ -331,6 +331,15 @@ model user_portfolio {
   projections Json
   metrics     Json
 
+  annual_return        Float?
+  volatility           Float?
+  sharpe_ratio         Float?
+  max_drawdown         Float? @map("max_drawndown")
+  empirical_beta       Float?
+  diversification      Float?
+  rating               String?
+  performance_tracking Json
+
   @@unique([owner_id, name])
   @@map("user_portfolio")
 }

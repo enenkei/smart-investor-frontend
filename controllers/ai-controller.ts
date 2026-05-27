@@ -3,7 +3,7 @@
 import { generateText, Output } from 'ai';
 import { google } from "@ai-sdk/google";
 import { z } from 'zod';
-import { GOOGLE_GENERATIVE_AI_API_KEY, AI_MODEL } from "../lib/data-types";
+import { AI_MODEL } from "../lib/data-types";
 import { getSystemSetting } from './setting-controller';
 
 export type StockDetail = {
@@ -48,9 +48,6 @@ export const analyzeSelectedStock = async (data: StockDetail) => {
     try {
         const modelResult = await getSystemSetting(AI_MODEL);
         const model = modelResult?.value || "gemini-3.1-flash-lite";
-        const apiKeyResult = await getSystemSetting(GOOGLE_GENERATIVE_AI_API_KEY);
-        const apiKey = apiKeyResult?.value;
-        if (!apiKey) return { error: "Please provide model and api key", ok: false };
         const { output } = await generateText({
             model: google(model),
             prompt: `You are an expert quantitative equity analyst. Analyze this stock based on the provided metrics: ${JSON.stringify(data)}`,
@@ -79,9 +76,6 @@ export const analyzeSelectedEtf = async (data: EtfDetail) => {
     try {
         const modelResult = await getSystemSetting(AI_MODEL);
         const model = modelResult?.value || "gemini-3.1-flash-lite";
-        const apiKeyResult = await getSystemSetting(GOOGLE_GENERATIVE_AI_API_KEY);
-        const apiKey = apiKeyResult?.value;
-        if (!apiKey) return { error: "Please provide model and api key", ok: false };
         const { output } = await generateText({
             model: google(model),
             prompt: `You are an expert quantitative analyst. Analyze this ETF based on the provided metrics: ${JSON.stringify(data)}`,

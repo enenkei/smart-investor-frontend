@@ -56,5 +56,4 @@ export interface Asset {
 }
 
 export const ALPHA_VANTAGE_API = "ALPHA_VANTAGE_API"
-export const GOOGLE_GENERATIVE_AI_API_KEY = "GOOGLE_GENERATIVE_AI_API_KEY"
 export const AI_MODEL = "AI_MODEL"

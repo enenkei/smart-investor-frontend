@@ -4,6 +4,7 @@ import * as React from "react";
 import { FilterSidebar } from "@/app/(dashboard)/(main)/_components/screener/filter-sidebar";
 import { VisualizationLayer } from "@/app/(dashboard)/(main)/_components/screener/visualization-layer";
 import { IntelTable } from "@/app/(dashboard)/(main)/_components/screener/intel-table";
+import { ETFDiscoveryTabs } from "@/app/(dashboard)/(main)/_components/screener/etf-discovery-tabs";
 import { getETFs, getETFSectors } from "@/controllers/stock-data-controller";
 
 const EtfScreener = () => {
@@ -78,6 +79,12 @@ const EtfScreener = () => {
                         Showing <span className="text-foreground font-bold">{totalResults}</span> results.
                     </p>
                 </div>
+
+                {/* Discovery Tabs Section */}
+                <ETFDiscoveryTabs
+                    onSelectSymbol={handleSelectSymbol}
+                    selectedSymbol={selectedSymbol}
+                />
 
                 {/* Visualization Section */}
                 <section className={loading ? "opacity-50 pointer-events-none" : ""}>

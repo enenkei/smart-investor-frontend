@@ -399,7 +399,7 @@ export const getWatchlist = async () => {
                     w.symbol, 
                     e.sector, 
                     e.previous_closing_price as "currentPrice", 
-                    e.annual_dividend_yield_pct as "dividendYield",
+                    e.annual_dividend_yield_pct/100 as "dividendYield",
                     'ETF' as type,
                     w.added_at
                 FROM watchlist w 
@@ -410,7 +410,7 @@ export const getWatchlist = async () => {
             FROM RawWatchlist 
             ORDER BY symbol, added_at DESC
         `;
-        
+
         const result = (watchlist as any[]).map(item => ({
             ...item,
             currentPrice: item.currentPrice ? Number(item.currentPrice) : null,

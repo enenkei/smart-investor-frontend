@@ -31,9 +31,9 @@ import { LogoutDialog } from "@/app/(dashboard)/(main)/user/logout-confirm-dialo
 
 const navItems = [
   { name: "Screener", href: "/", icon: PieChart },
+  { name: "Portfolio", href: "/portfolio", icon: Briefcase },
   { name: "Market News", href: "/market-news", icon: Newspaper },
   { name: "Global News", href: "/rss-feeds", icon: TrendingUp },
-  { name: "Portfolio", href: "/portfolio", icon: Briefcase },
 ];
 
 export function Header() {
