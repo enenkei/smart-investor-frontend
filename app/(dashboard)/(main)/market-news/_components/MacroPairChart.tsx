@@ -113,6 +113,7 @@ const MacroPairChart: React.FC<MacroPairChartProps> = ({ title, pair, colors = [
                             stroke="var(--color-val1)"
                             strokeWidth={2}
                             dot={false}
+                            connectNulls
                         />
                     )}
                     {item2 && (
@@ -122,6 +123,7 @@ const MacroPairChart: React.FC<MacroPairChartProps> = ({ title, pair, colors = [
                             stroke="var(--color-val2)"
                             strokeWidth={2}
                             dot={false}
+                            connectNulls
                         />
                     )}
                 </LineChart>

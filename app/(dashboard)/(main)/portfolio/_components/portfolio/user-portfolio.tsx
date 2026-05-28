@@ -25,14 +25,12 @@ import {
 // import { getUserPortfolios } from "@/lib/actions/assets";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { usePortfolioStore } from "@/lib/store/use-portfolio-store";
-import { user_assets } from "@/generated/prisma/client";
-
 
 const UserPortfolio = (props: { setPortfolioId: (id: number) => void }) => {
     const { setPortfolioId } = props;
     // const [portfolios, setPortfolios] = useState<any[]>([]);
     const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>();
-    const [assets, setAssets] = useState<user_assets[]>([]);
+    const [assets, setAssets] = useState<Asset[]>([]);
     const { fetchUserPortfolios, fetchUserAssets, fetchWatchlist, userAssets, userPortfolios } = usePortfolioStore();
 
     useEffect(() => {
@@ -51,7 +49,7 @@ const UserPortfolio = (props: { setPortfolioId: (id: number) => void }) => {
 
     useEffect(() => {
         if (selectedPortfolioId) {
-            const filtered = userAssets.filter(p => p.portfolio_id === Number(selectedPortfolioId));
+            const filtered = userAssets.filter(p => p.portfolio_id === Number(selectedPortfolioId)) as Asset[];
             setAssets(filtered);
         }
     }, [userAssets, selectedPortfolioId]);

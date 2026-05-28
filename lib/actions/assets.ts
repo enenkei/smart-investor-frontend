@@ -11,9 +11,37 @@ export async function getUserAssets() {
     const userId = (session.user as any).id;
     if (!userId) return [];
 
-    return await prisma.user_assets.findMany({
+    const assets = await prisma.user_assets.findMany({
         where: { owner_id: parseInt(userId) },
         orderBy: { symbol: 'asc' }
+    });
+
+    const uniqueSymbols = Array.from(new Set(assets.map(a => a.symbol.toUpperCase())));
+
+    const fundamentalScores = await prisma.fundamentalScores.findMany({
+        where: { ticker: { in: uniqueSymbols } },
+        select: {
+            ticker: true,
+            current_price: true,
+            prev_close: true,
+            one_day_change: true,
+            price_history: true
+        }
+    });
+
+    const scoreMap = new Map(
+        fundamentalScores.map(score => [score.ticker.toUpperCase(), score])
+    );
+
+    return assets.map(a => {
+        const score = scoreMap.get(a.symbol.toUpperCase());
+        return {
+            ...a,
+            current_price: score?.current_price ?? null,
+            prev_close: score?.prev_close ?? null,
+            one_day_change: score?.one_day_change ?? null,
+            price_history: score?.price_history ?? null
+        };
     });
 }
 
@@ -23,11 +51,47 @@ export async function getUserPortfolios() {
     const userId = (session.user as any).id;
     if (!userId) return [];
 
-    return await prisma.user_portfolio.findMany({
+    const portfolios = await prisma.user_portfolio.findMany({
         where: { owner_id: parseInt(userId) },
         include: { userAssets: true },
         orderBy: { updated_at: 'desc' }
     });
+
+    // Gather all unique symbols across all portfolios
+    const uniqueSymbols = Array.from(
+        new Set(portfolios.flatMap(p => p.userAssets.map(a => a.symbol.toUpperCase())))
+    );
+
+    // Fetch pricing and historical metrics from fundamental_scores
+    const fundamentalScores = await prisma.fundamentalScores.findMany({
+        where: { ticker: { in: uniqueSymbols } },
+        select: {
+            ticker: true,
+            current_price: true,
+            prev_close: true,
+            one_day_change: true,
+            price_history: true
+        }
+    });
+
+    const scoreMap = new Map(
+        fundamentalScores.map(score => [score.ticker.toUpperCase(), score])
+    );
+
+    // Map through portfolios and attach columns to user assets
+    return portfolios.map(p => ({
+        ...p,
+        userAssets: p.userAssets.map(a => {
+            const score = scoreMap.get(a.symbol.toUpperCase());
+            return {
+                ...a,
+                current_price: score?.current_price ?? null,
+                prev_close: score?.prev_close ?? null,
+                one_day_change: score?.one_day_change ?? null,
+                price_history: score?.price_history ?? null
+            };
+        })
+    }));
 }
 
 // export async function updateAssetDetails(symbol: string, data: { shares_count?: number, avg_cost_basis?: number }) {

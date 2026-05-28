@@ -40,6 +40,7 @@ model FundamentalScores {
   current_price         Float?
   prev_close            Float?
   one_day_change        Float?
+  price_history         Json?
 
   @@unique([ticker, sector], map: "ticker_sector_unique")
   @@map("fundamental_scores")

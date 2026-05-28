@@ -35,7 +35,7 @@ const MacroLinkSidebar = () => {
     const findItem = (list: any[], key: string) => {
         if (!list) return null;
         const normalizedKey = key.toLowerCase();
-        return list.find(i => 
+        return list.find(i =>
             (i.indicator || '').toLowerCase() === normalizedKey ||
             (i.commodity || '').toLowerCase() === normalizedKey ||
             (i.indicator || i.commodity || i.name || '').toLowerCase().includes(normalizedKey)
@@ -57,7 +57,7 @@ const MacroLinkSidebar = () => {
                 findItem(macroData.indicators, 'CPI'),
                 findItem(macroData.indicators, 'INFLATION')
             ] as [any, any],
-            colors: ["#3b82f6", "#8b5cf6"]
+            colors: ["#f59e0b", "#8b5cf6"]
         },
         {
             title: "Energy Mix",
@@ -93,6 +93,7 @@ const MacroLinkSidebar = () => {
         }
     ];
 
+    // console.log(macroPairs)
 
     return (
         <div className="flex flex-col gap-10">
@@ -105,7 +106,7 @@ const MacroLinkSidebar = () => {
 
                 <div className="flex flex-col gap-4">
                     {macroPairs.map((group, idx) => (
-                        <MacroPairChart 
+                        <MacroPairChart
                             key={idx}
                             title={group.title}
                             pair={group.pair}

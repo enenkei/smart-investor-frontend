@@ -76,6 +76,57 @@ interface Sp500IntelTableProps {
   onPageChange: (newPage: number) => void;
 }
 
+const Sparkline = ({ data }: { data: any }) => {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return <div className="text-muted-foreground/30 text-xs font-mono font-medium">-</div>;
+  }
+
+  // Sort by date chronologically
+  const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const prices = sortedData.map(d => Number(d.price)).filter(p => !isNaN(p));
+
+  if (prices.length < 2) {
+    return <div className="text-muted-foreground/30 text-xs font-mono font-medium">-</div>;
+  }
+
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min === 0 ? 1 : max - min;
+
+  const width = 70;
+  const height = 18;
+  const padding = 1;
+
+  const points = prices.map((price, index) => {
+    const x = (index / (prices.length - 1)) * (width - 2 * padding) + padding;
+    const y = height - ((price - min) / range) * (height - 2 * padding) - padding;
+    return { x, y };
+  });
+
+  const pathD = points.reduce((acc, p, index) => {
+    return index === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
+  }, "");
+
+  const areaD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
+
+  const isPositive = prices[prices.length - 1] >= prices[0];
+  const strokeColor = isPositive ? "#34d399" : "#f87171"; // Emerald-400 or Rose-400
+  const fillId = `sparkline-grad-${Math.random().toString(36).substr(2, 9)}`;
+
+  return (
+    <svg width={width} height={height} className="overflow-visible inline-block">
+      <defs>
+        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={`url(#${fillId})`} />
+      <path d={pathD} fill="none" stroke={strokeColor} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
 export function Sp500IntelTable({
   data,
   loading,
@@ -224,68 +275,49 @@ export function Sp500IntelTable({
             ),
           },
           {
+            accessorKey: "price_history",
+            header: "Trend (2Y)",
+            cell: ({ row }) => {
+              const history = row.original.price_history;
+              return (
+                <div className="flex items-center justify-center">
+                  <Sparkline data={history} />
+                </div>
+              );
+            }
+          },
+          {
             accessorKey: "sector",
             header: "Sector",
             cell: ({ row }) => (
-              <span className="text-[9px] uppercase font-bold text-muted-foreground/70 whitespace-nowrap">
-                {row.original.sector}
-              </span>
+              <Badge variant={"secondary"}>{row.original.sector}</Badge>
             ),
           },
         ],
       },
       {
-        id: "score",
-        header: "Score",
-        columns: [
-          {
-            accessorKey: "adaptive_total_score",
-            header: ({ column }) => {
-              return (
-                <Button
-                  variant="ghost"
-                  onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                  Hunter
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              )
-            },
-            cell: ({ row }) => {
-              const rawScore = Number(row.original.adaptive_total_score) || 0;
-              const score = rawScore <= 1 ? rawScore * 100 : rawScore;
-              return (
-                <span className="font-mono font-black text-primary text-xs">
-                  {score.toFixed(1)}
-                </span>
-              );
-            }
-          },
-          {
-            accessorKey: "quality_score",
-            header: "Quality",
-            cell: ({ row }) => {
-              const rawScore = Number(row.original.quality_score) || 0;
-              const score = rawScore <= 1 ? rawScore * 100 : rawScore;
-              return (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-8 h-1 bg-muted rounded-none overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full transition-all",
-                        score > 80 ? "bg-emerald-500" : score > 50 ? "bg-amber-500" : "bg-rose-500"
-                      )}
-                      style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
-                    />
-                  </div>
-                  <span className="font-mono font-bold text-[9px] text-muted-foreground">
-                    {score < 0.1 && score > 0 ? "<0.1" : score.toFixed(1)}
-                  </span>
-                </div>
-              );
-            },
-          },
-        ],
+        accessorKey: "quality_score",
+        header: "Quality",
+        cell: ({ row }) => {
+          const rawScore = Number(row.original.quality_score) || 0;
+          const score = rawScore <= 1 ? rawScore * 100 : rawScore;
+          return (
+            <div className="flex items-center gap-1.5">
+              <div className="w-8 h-1 bg-muted rounded-none overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full transition-all",
+                    score > 80 ? "bg-emerald-500" : score > 50 ? "bg-amber-500" : "bg-rose-500"
+                  )}
+                  style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
+                />
+              </div>
+              <span className="font-mono font-bold text-[9px] text-muted-foreground">
+                {score < 0.1 && score > 0 ? "<0.1" : score.toFixed(1)}
+              </span>
+            </div>
+          );
+        },
       },
       {
         id: "yield_growth",
@@ -741,8 +773,8 @@ export function Sp500IntelTable({
         </AnimatePresence>
       </div>
 
-      <Dialog 
-        open={!!analysisResult || !!analyzingSymbol} 
+      <Dialog
+        open={!!analysisResult || !!analyzingSymbol}
         onOpenChange={(open) => {
           if (!open) {
             setAnalysisResult(null);
@@ -757,7 +789,7 @@ export function Sp500IntelTable({
               AI Analysis: {analysisResult?.symbol || analyzingSymbol}
             </DialogTitle>
           </DialogHeader>
-          
+
           {analyzingSymbol && !analysisResult && (
             <div className="flex flex-col items-center justify-center py-16 gap-6">
               <div className="relative flex items-center justify-center">
@@ -777,7 +809,7 @@ export function Sp500IntelTable({
                 <strong className="text-primary uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Overview</strong>
                 <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.overview}</p>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-6 bg-background/30 p-4 rounded-lg border border-border/50">
                 <div>
                   <strong className="text-emerald-500 uppercase text-[10px] font-black tracking-[0.2em] block mb-2">Pros</strong>
@@ -792,12 +824,12 @@ export function Sp500IntelTable({
                   </ul>
                 </div>
               </div>
-              
+
               <div>
                 <strong className="text-blue-500 uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Suitability</strong>
                 <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.suitability}</p>
               </div>
-              
+
               <div className="flex items-center justify-between pt-4 border-t border-border/50 bg-muted/10 p-4 rounded-lg mt-2">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground">Verdict</span>
