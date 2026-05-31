@@ -63,8 +63,8 @@ const BuildPortfolio = () => {
 
     // Health score check (disable Rebuild if Score >= 85)
     const currentPortfolio = userPortfolios.find(p => p.id === portfolio_id);
-    const currentScore = currentPortfolio?.performance_tracking 
-        ? (currentPortfolio.performance_tracking as any).health?.score 
+    const currentScore = currentPortfolio?.performance_tracking
+        ? (currentPortfolio.performance_tracking as any).health?.score
         : null;
     const isHealthExcellent = currentScore !== null && currentScore >= 85;
 
@@ -86,7 +86,7 @@ const BuildPortfolio = () => {
             const shares = assetsInPortfolio.map(a => a.shares ?? 0);
 
             const candidatesData = await getPortfolioCandidates(tickers);
-            
+
             const formattedCandidates = candidatesData.map(c => ({
                 symbol: c.symbol,
                 total_return: c.total_return,
@@ -159,7 +159,7 @@ const BuildPortfolio = () => {
             const shares = assetsInPortfolio.map(a => a.shares ?? 0);
 
             const candidatesData = await getPortfolioCandidates(tickers);
-            
+
             const formattedCandidates = candidatesData.map(c => ({
                 symbol: c.symbol,
                 total_return: c.total_return,
@@ -186,7 +186,7 @@ const BuildPortfolio = () => {
             if (data.success) {
                 setPerformanceResult(data);
                 setPerformanceDialogOpen(true);
-                
+
                 try {
                     await savePerformanceResultToPortfolio(portfolio_id, data);
                     await fetchUserPortfolios();
@@ -452,7 +452,7 @@ const BuildPortfolio = () => {
                     </Button>
                     <Button
                         onClick={handleOpenOptimizer}
-                        disabled={selectedTickers.length <= 3}
+                        disabled={selectedTickers.length <= 2}
                         className="rounded-none bg-primary/90 hover:bg-primary text-primary-foreground font-black text-xs uppercase tracking-widest h-8 px-4 gap-2"
                     >
                         <Zap className="w-3.5 h-3.5" />
