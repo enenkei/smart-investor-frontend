@@ -98,7 +98,7 @@ export function IntelTable({
 
   const handleAddToWatchlist = async (e: React.MouseEvent, symbol: string) => {
     e.stopPropagation();
-    
+
     // Create flying animation
     const rect = (e.target as HTMLElement).getBoundingClientRect();
     const newItem = {
@@ -219,11 +219,13 @@ export function IntelTable({
             header: "Symbol",
             cell: ({ row }) => (
               <div className="flex items-center gap-3 min-w-[200px]">
-                <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary border border-primary/20 shrink-0">
-                  {row.original.symbol}
-                </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="font-bold tracking-tight text-xs truncate">{row.original.symbol}<span className="text-xs font-normal text-gray-500">(${row.original.previous_closing_price})</span></span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-none bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary border border-primary/20 shrink-0">
+                      {row.original.symbol}
+                    </div>
+                    <span className="text-xs font-normal text-gray-500">(${row.original.previous_closing_price})</span>
+                  </div>
                   <span className="text-[10px] text-muted-foreground truncate" title={row.original.etf_name}>
                     {row.original.etf_name}
                   </span>
@@ -728,11 +730,11 @@ export function IntelTable({
             <motion.div
               key={item.id}
               initial={{ x: item.x, y: item.y, opacity: 1, scale: 1 }}
-              animate={{ 
-                x: window.innerWidth - 100, 
-                y: 50, 
-                opacity: 0, 
-                scale: 0.5 
+              animate={{
+                x: window.innerWidth - 100,
+                y: 50,
+                opacity: 0,
+                scale: 0.5
               }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -744,8 +746,8 @@ export function IntelTable({
         </AnimatePresence>
       </div>
 
-      <Dialog 
-        open={!!analysisResult || !!analyzingSymbol} 
+      <Dialog
+        open={!!analysisResult || !!analyzingSymbol}
         onOpenChange={(open) => {
           if (!open) {
             setAnalysisResult(null);
@@ -760,7 +762,7 @@ export function IntelTable({
               AI Analysis: {analysisResult?.symbol || analyzingSymbol}
             </DialogTitle>
           </DialogHeader>
-          
+
           {analyzingSymbol && !analysisResult && (
             <div className="flex flex-col items-center justify-center py-16 gap-6">
               <div className="relative flex items-center justify-center">
@@ -780,7 +782,7 @@ export function IntelTable({
                 <strong className="text-primary uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Overview</strong>
                 <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.overview}</p>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-6 bg-background/30 p-4 rounded-lg border border-border/50">
                 <div>
                   <strong className="text-emerald-500 uppercase text-[10px] font-black tracking-[0.2em] block mb-2">Pros</strong>
@@ -795,12 +797,12 @@ export function IntelTable({
                   </ul>
                 </div>
               </div>
-              
+
               <div>
                 <strong className="text-blue-500 uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Suitability</strong>
                 <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.suitability}</p>
               </div>
-              
+
               <div className="flex items-center justify-between pt-4 border-t border-border/50 bg-muted/10 p-4 rounded-lg mt-2">
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground">Verdict</span>

@@ -264,12 +264,14 @@ export function Sp500IntelTable({
             header: "Ticker",
             cell: ({ row }) => (
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-sm bg-primary/10 border border-primary/20 flex items-center justify-center text-[9px] font-black text-primary">
-                  {row.original.ticker}
-                </div>
                 <div className="flex flex-col min-w-0">
-                  <div className="flex flex-row items-center justify-between"><span className="font-bold tracking-tight text-[11px] truncate">{row.original.ticker}</span><span className="text-[8px] text-muted-foreground uppercase font-semibold max-w-[80px] mx-auto">${row.original.prev_close.toFixed(2)}</span></div>
-                  <span className="text-[8px] text-muted-foreground uppercase font-medium truncate max-w-[80px]">{row.original.name}</span>
+                  <div className="flex flex-row items-center gap-2">
+                    <div className="w-6 h-6 rounded-none bg-primary/10 border border-primary/20 flex items-center justify-center text-[9px] font-black text-primary">
+                      {row.original.ticker}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold max-w-[80px]">${row.original.prev_close.toFixed(2)}</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground uppercase font-medium truncate max-w-[120px]">{row.original.name}</span>
                 </div>
               </div>
             ),
