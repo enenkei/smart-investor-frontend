@@ -17,6 +17,7 @@ import {
   Lock,
   ArrowUpRight,
   AlertTriangle,
+  Scale,
 } from "lucide-react";
 import IntelPopup from "./intel-popup";
 import StrategyPopup from "./strategy-popup";
@@ -59,15 +60,15 @@ export const Sparkline = ({ data }: { data: any }) => {
   const fillId = `sparkline-grad-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
-    <svg width={width} height={height} className="overflow-visible inline-block">
+    <svg width={width} height={height} className="overflow-visible">
       <defs>
         <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.2" />
+          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.3" />
           <stop offset="100%" stopColor={strokeColor} stopOpacity="0.0" />
         </linearGradient>
       </defs>
       <path d={areaD} fill={`url(#${fillId})`} />
-      <path d={pathD} fill="none" stroke={strokeColor} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={pathD} fill="none" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 };
@@ -75,12 +76,14 @@ export const Sparkline = ({ data }: { data: any }) => {
 export interface GetSp500IntelTableColumnsParams {
   onAddToWatchlist: (e: React.MouseEvent, symbol: string) => void;
   onAnalyze: (e: React.MouseEvent, row: any) => void;
+  onCompare?: (symbol: string) => void;
   analyzingSymbol: string | null;
 }
 
 export function getSp500IntelTableColumns({
   onAddToWatchlist,
   onAnalyze,
+  onCompare,
   analyzingSymbol,
 }: GetSp500IntelTableColumnsParams): ColumnDef<any>[] {
   return [
@@ -112,6 +115,20 @@ export function getSp500IntelTableColumns({
               <Sparkles className="w-4 h-4" />
             )}
           </Button>
+          {onCompare && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-sky-500 hover:bg-sky-500/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCompare(row.original.ticker);
+              }}
+              title="Compare Head-to-Head Duel"
+            >
+              <Scale className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },

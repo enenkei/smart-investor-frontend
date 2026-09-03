@@ -663,3 +663,177 @@ export const removeFromWatchlist = async (symbol: string) => {
         return { success: false, error: (error as Error).message };
     }
 }
+
+export interface ComparisonItem {
+    symbol: string;
+    name: string;
+    type: 'STOCK' | 'ETF';
+    sectorOrClass: string;
+    price: number | null;
+    peRatio: number | null;
+    fcfYield: number | null;
+    expenseRatio: number | null;
+    divYield: number | null;
+    divCagr5y: number | null;
+    payoutRatio: number | null;
+    operatingMargins: number | null;
+    roe: number | null;
+    deRatio: number | null;
+    currentRatio: number | null;
+    marketCapOrAssets: number | null;
+    numOfHoldings: number | null;
+    pctInTop10: number | null;
+    rsi: number | null;
+    beta: number | null;
+    oneDayChange: number | null;
+    oneYearPerf: number | null;
+    qualityScore: number | null;
+    adaptiveScore: number | null;
+}
+
+export const getTickerForComparison = async (symbol: string): Promise<ComparisonItem | null> => {
+    if (!symbol) return null;
+    const cleanSym = symbol.trim().toUpperCase();
+    try {
+        const stocks = await db
+            .select()
+            .from(fundamentalScores)
+            .where(eq(fundamentalScores.ticker, cleanSym))
+            .limit(1);
+
+        if (stocks.length > 0) {
+            const stock = stocks[0];
+            return {
+                symbol: stock.ticker,
+                name: stock.name || '',
+                type: 'STOCK',
+                sectorOrClass: stock.sector || 'Equities',
+                price: stock.prev_close ? Number(stock.prev_close) : (stock.current_price ? Number(stock.current_price) : null),
+                peRatio: stock.pe_ratio ? Number(stock.pe_ratio) : null,
+                fcfYield: stock.fcf_yield ? Number(stock.fcf_yield) : null,
+                expenseRatio: null,
+                divYield: stock.dividend_yield ? Number(stock.dividend_yield) : null,
+                divCagr5y: stock.dividend_cagr_5y ? Number(stock.dividend_cagr_5y) : null,
+                payoutRatio: stock.payout_ratio ? Number(stock.payout_ratio) : null,
+                operatingMargins: stock.operating_margins ? Number(stock.operating_margins) : null,
+                roe: stock.roe ? Number(stock.roe) : null,
+                deRatio: stock.de_ratio ? Number(stock.de_ratio) : null,
+                currentRatio: stock.current_ratio ? Number(stock.current_ratio) : null,
+                marketCapOrAssets: stock.market_cap ? Number(stock.market_cap) : null,
+                numOfHoldings: null,
+                pctInTop10: null,
+                rsi: stock.rsi ? Number(stock.rsi) : null,
+                beta: stock.beta ? Number(stock.beta) : null,
+                oneDayChange: stock.one_day_change ? Number(stock.one_day_change) : null,
+                oneYearPerf: stock.total_return ? Number(stock.total_return) : null,
+                qualityScore: stock.quality_score ? Number(stock.quality_score) : null,
+                adaptiveScore: stock.adaptive_total_score ? Number(stock.adaptive_total_score) : null,
+            };
+        }
+
+        const etfs = await db
+            .select()
+            .from(etfMetadata)
+            .where(eq(etfMetadata.symbol, cleanSym))
+            .limit(1);
+
+        if (etfs.length > 0) {
+            const etf = etfs[0];
+            return {
+                symbol: etf.symbol,
+                name: etf.etf_name || '',
+                type: 'ETF',
+                sectorOrClass: etf.etf_database_category || etf.asset_class || 'ETF',
+                price: etf.previous_closing_price ? Number(etf.previous_closing_price) : null,
+                peRatio: etf.pe_ratio ? Number(etf.pe_ratio) : null,
+                fcfYield: null,
+                expenseRatio: etf.expense_ratio ? Number(etf.expense_ratio) : null,
+                divYield: etf.annual_dividend_yield_pct ? Number(etf.annual_dividend_yield_pct) : null,
+                divCagr5y: null,
+                payoutRatio: null,
+                operatingMargins: null,
+                roe: null,
+                deRatio: null,
+                currentRatio: null,
+                marketCapOrAssets: etf.total_assets ? Number(etf.total_assets) : null,
+                numOfHoldings: etf.num_of_holdings ? Number(etf.num_of_holdings) : null,
+                pctInTop10: etf.pct_in_top_10 ? Number(etf.pct_in_top_10) : null,
+                rsi: etf.rsi ? Number(etf.rsi) : null,
+                beta: etf.beta ? Number(etf.beta) : null,
+                oneDayChange: etf.one_day_change ? Number(etf.one_day_change) : null,
+                oneYearPerf: etf.one_year_perf ? Number(etf.one_year_perf) : null,
+                qualityScore: null,
+                adaptiveScore: null,
+            };
+        }
+
+        return null;
+    } catch (error) {
+        console.error("Error fetching ticker for comparison:", error);
+        return null;
+    }
+};
+
+export const searchTickersForComparison = async (query: string): Promise<{ symbol: string; name: string; type: 'STOCK' | 'ETF'; sector: string }[]> => {
+    if (!query || query.trim().length === 0) return [];
+    const q = query.trim();
+
+    try {
+        const [stocks, etfs] = await Promise.all([
+            db
+                .select({
+                    symbol: fundamentalScores.ticker,
+                    name: fundamentalScores.name,
+                    sector: fundamentalScores.sector,
+                })
+                .from(fundamentalScores)
+                .where(
+                    and(
+                        isNotNull(fundamentalScores.name),
+                        or(
+                            ilike(fundamentalScores.ticker, `%${q}%`),
+                            ilike(fundamentalScores.name, `%${q}%`)
+                        )
+                    )
+                )
+                .orderBy(
+                    sql`CASE 
+                        WHEN UPPER(${fundamentalScores.ticker}) = UPPER(${q}) THEN 0 
+                        WHEN UPPER(${fundamentalScores.ticker}) LIKE UPPER(${q + '%'}) THEN 1 
+                        ELSE 2 
+                    END`
+                )
+                .limit(5),
+            db
+                .select({
+                    symbol: etfMetadata.symbol,
+                    name: etfMetadata.etf_name,
+                    sector: etfMetadata.asset_class,
+                })
+                .from(etfMetadata)
+                .where(
+                    or(
+                        ilike(etfMetadata.symbol, `%${q}%`),
+                        ilike(etfMetadata.etf_name, `%${q}%`)
+                    )
+                )
+                .orderBy(
+                    sql`CASE 
+                        WHEN UPPER(${etfMetadata.symbol}) = UPPER(${q}) THEN 0 
+                        WHEN UPPER(${etfMetadata.symbol}) LIKE UPPER(${q + '%'}) THEN 1 
+                        ELSE 2 
+                    END`
+                )
+                .limit(5),
+        ]);
+
+        return [
+            ...stocks.map(s => ({ symbol: s.symbol, name: s.name || '', type: 'STOCK' as const, sector: s.sector || '' })),
+            ...etfs.map(e => ({ symbol: e.symbol, name: e.name || '', type: 'ETF' as const, sector: e.sector || '' })),
+        ];
+    } catch (error) {
+        console.error("Error searching tickers for comparison:", error);
+        return [];
+    }
+};
+

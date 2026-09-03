@@ -33,8 +33,7 @@ import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 const navItems = [
   { name: "Screener", href: "/", icon: PieChart },
   { name: "Portfolio", href: "/portfolio", icon: Briefcase },
-  { name: "Market News", href: "/market-news", icon: Newspaper },
-  { name: "Global News", href: "/rss-feeds", icon: TrendingUp },
+  // { name: "Global News", href: "/rss-feeds", icon: TrendingUp },
 ];
 
 export function Header() {

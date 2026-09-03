@@ -27,12 +27,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { AnalysisDialog } from "./analysis-dialog";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -41,8 +36,6 @@ import {
   ChevronsRight,
   Search,
   Filter,
-  Sparkles,
-  Loader2,
   X,
 } from "lucide-react";
 import { addToWatchlist } from "@/controllers/stock-data-controller";
@@ -64,6 +57,7 @@ interface IntelTableProps {
   page: number;
   totalPages: number;
   onPageChange: (newPage: number) => void;
+  onCompare?: (symbol: string) => void;
 }
 
 export function IntelTable({
@@ -78,7 +72,8 @@ export function IntelTable({
   sectors,
   page,
   totalPages,
-  onPageChange
+  onPageChange,
+  onCompare,
 }: IntelTableProps) {
   const [flyingItems, setFlyingItems] = React.useState<{ id: number; x: number; y: number; symbol: string }[]>([]);
   const [analyzingSymbol, setAnalyzingSymbol] = React.useState<string | null>(null);
@@ -137,16 +132,28 @@ export function IntelTable({
       symbol: row.symbol,
       name: row.etf_name || '',
       assetClass: row.asset_class || '',
-      sector: row.sector || '',
+      category: row.etf_database_category || row.category || row.sector || '',
+      price: row.previous_closing_price ? Number(row.previous_closing_price) : null,
+      oneDayChange: row.one_day_change ? Number(row.one_day_change) : null,
+      oneMonthPerf: row.one_month_perf ? Number(row.one_month_perf) : null,
+      ytdPriceChange: row.ytd_price_change ? Number(row.ytd_price_change) : null,
+      oneYearPerf: row.one_year_perf ? Number(row.one_year_perf) : null,
+      threeYearPerf: row.three_year_perf ? Number(row.three_year_perf) : null,
+      fiveYearPerf: row.five_year_perf ? Number(row.five_year_perf) : null,
       expenseRatio: row.expense_ratio ? Number(row.expense_ratio) : null,
       taxForm: row.tax_form || '',
       divYield: row.annual_dividend_yield_pct ? Number(row.annual_dividend_yield_pct) : null,
+      peRatio: row.pe_ratio ? Number(row.pe_ratio) : null,
       totalAssets: row.total_assets ? Number(row.total_assets) : null,
       avgVolume: row.avg_daily_volume ? Number(row.avg_daily_volume) : null,
+      numOfHoldings: row.num_of_holdings ? Number(row.num_of_holdings) : null,
+      pctInTop10: row.pct_in_top_10 ? Number(row.pct_in_top_10) : null,
       rsi: row.rsi ? Number(row.rsi) : null,
-      ytdPriceChange: row.ytd_price_change ? Number(row.ytd_price_change) : null,
-      oneMonthPerf: row.one_month_perf ? Number(row.one_month_perf) : null,
       beta: row.beta ? Number(row.beta) : null,
+      expensesRating: row.expenses_rating || null,
+      dividendRating: row.dividend_rating || null,
+      volatilityRating: row.volatility_rating || null,
+      liquidityRating: row.liquidity_rating || null,
       isLeveraged: row.is_leveraged || false,
       isInverse: row.is_inverse || false,
     };
@@ -170,9 +177,10 @@ export function IntelTable({
       getIntelTableColumns({
         onAddToWatchlist: handleAddToWatchlist,
         onAnalyze: handleAnalyze,
+        onCompare,
         analyzingSymbol,
       }),
-    [analyzingSymbol]
+    [analyzingSymbol, onCompare]
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -368,7 +376,7 @@ export function IntelTable({
         </AnimatePresence>
       </div>
 
-      <Dialog
+      <AnalysisDialog
         open={!!analysisResult || !!analyzingSymbol}
         onOpenChange={(open) => {
           if (!open) {
@@ -376,73 +384,9 @@ export function IntelTable({
             setAnalyzingSymbol(null);
           }
         }}
-      >
-        <DialogContent className="max-w-xl bg-card/95 backdrop-blur-xl border-border/50 rounded-xl shadow-2xl">
-          <DialogHeader className="border-b border-border/50 pb-4">
-            <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tight text-primary">
-              <Sparkles className="w-5 h-5 text-amber-500" />
-              AI Analysis: {analysisResult?.symbol || analyzingSymbol}
-            </DialogTitle>
-          </DialogHeader>
-
-          {analyzingSymbol && !analysisResult && (
-            <div className="flex flex-col items-center justify-center py-16 gap-6">
-              <div className="relative flex items-center justify-center">
-                <div className="absolute w-16 h-16 border-4 border-primary/20 rounded-full animate-ping" />
-                <Loader2 className="w-10 h-10 animate-spin text-primary relative z-10" />
-              </div>
-              <div className="flex flex-col items-center gap-2">
-                <p className="text-sm font-mono font-bold text-foreground">Running quantitative analysis...</p>
-                <p className="text-xs text-muted-foreground">Evaluating valuation, momentum, and risk metrics</p>
-              </div>
-            </div>
-          )}
-
-          {analysisResult && (
-            <div className="space-y-6 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div>
-                <strong className="text-primary uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Overview</strong>
-                <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.overview}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 bg-background/30 p-4 rounded-lg border border-border/50">
-                <div>
-                  <strong className="text-emerald-500 uppercase text-[10px] font-black tracking-[0.2em] block mb-2">Pros</strong>
-                  <ul className="list-disc pl-4 text-muted-foreground text-xs space-y-1.5 marker:text-emerald-500/50">
-                    {analysisResult.pros?.map((p: string, i: number) => <li key={i}>{p}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <strong className="text-rose-500 uppercase text-[10px] font-black tracking-[0.2em] block mb-2">Risks & Cons</strong>
-                  <ul className="list-disc pl-4 text-muted-foreground text-xs space-y-1.5 marker:text-rose-500/50">
-                    {analysisResult.cons?.map((c: string, i: number) => <li key={i}>{c}</li>)}
-                  </ul>
-                </div>
-              </div>
-
-              <div>
-                <strong className="text-blue-500 uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Suitability</strong>
-                <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.suitability}</p>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-border/50 bg-muted/10 p-4 rounded-lg mt-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground">Verdict</span>
-                  <Badge variant={analysisResult.verdict?.includes('Buy') ? 'default' : analysisResult.verdict?.includes('Sell') ? 'destructive' : 'secondary'} className="uppercase font-black text-[10px] px-3 py-1 shadow-sm">
-                    {analysisResult.verdict}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground">Confidence</span>
-                  <span className="text-xs font-mono font-bold text-foreground bg-background/50 px-3 py-1 rounded border border-border/50">
-                    {analysisResult.confidenceLevel || analysisResult.confidence}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        analysisResult={analysisResult}
+        analyzingSymbol={analyzingSymbol}
+      />
     </div>
   );
 }

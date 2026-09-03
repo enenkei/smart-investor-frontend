@@ -10,7 +10,9 @@ import {
     DEFAULT_FILTERS,
 } from "@/app/(dashboard)/(main)/_components/screener/sp-500-filter-bar";
 import { getStocksSectors, getStocks } from "@/controllers/stock-data-controller";
-import { Target, TrendingDown } from "lucide-react";
+import { Target, TrendingDown, Scale } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ComparisonDialog } from "@/app/(dashboard)/(main)/_components/screener/comparison-dialog";
 
 const StocksScreener = () => {
     const [search, setSearch] = React.useState("");
@@ -22,6 +24,8 @@ const StocksScreener = () => {
     const [activePresetId, setActivePresetId] = React.useState<string | null>(null);
 
     const [selectedSymbol, setSelectedSymbol] = React.useState<string | null>(null);
+    const [compareOpen, setCompareOpen] = React.useState(false);
+    const [compareSymbolA, setCompareSymbolA] = React.useState<string | undefined>(undefined);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     // Initial load: Sectors
@@ -110,7 +114,7 @@ const StocksScreener = () => {
                 ref={scrollContainerRef}
                 className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar scroll-smooth"
             >
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-none border border-primary/20">
                             <Target className="w-6 h-6 text-primary" />
@@ -123,6 +127,18 @@ const StocksScreener = () => {
                             </p>
                         </div>
                     </div>
+
+                    <Button
+                        variant="outline"
+                        onClick={() => {
+                            setCompareSymbolA(undefined);
+                            setCompareOpen(true);
+                        }}
+                        className="flex items-center gap-2 border-primary/40 hover:border-primary/80 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider h-10 px-4 shadow-sm self-start sm:self-auto"
+                    >
+                        <Scale className="w-4 h-4 text-primary" />
+                        <span>Head-to-Head Duel</span>
+                    </Button>
                 </div>
 
                 {/* Finviz-Style Screener Filter Bar & Presets */}
@@ -173,9 +189,20 @@ const StocksScreener = () => {
                         page={page}
                         totalPages={totalPages}
                         onPageChange={handlePageChange}
+                        onCompare={(sym) => {
+                            setCompareSymbolA(sym);
+                            setCompareOpen(true);
+                        }}
                     />
                 </section>
             </div>
+
+            {/* Head-to-Head Comparison Dialog */}
+            <ComparisonDialog
+                open={compareOpen}
+                onOpenChange={setCompareOpen}
+                initialSymbolA={compareSymbolA}
+            />
         </div>
     );
 };

@@ -10,6 +10,7 @@ import {
   Plus,
   Loader2,
   Sparkles,
+  Scale,
 } from "lucide-react";
 
 export function RatingBadge({ rating }: { rating: string | null }) {
@@ -23,10 +24,11 @@ export function RatingBadge({ rating }: { rating: string | null }) {
     "F": "bg-red-500/10 text-red-500 border-red-500/20",
   };
 
-  const colorClass = colors[rating.charAt(0)] || "bg-muted/50 text-muted-foreground border-muted/50";
+  const letter = rating.charAt(0).toUpperCase();
+  const colorClass = colors[letter] || "bg-muted text-muted-foreground";
 
   return (
-    <Badge variant="outline" className={cn("text-[10px] font-black w-6 h-6 p-0 flex items-center justify-center rounded-sm", colorClass)}>
+    <Badge variant="outline" className={cn("text-[10px] font-bold px-1.5 py-0", colorClass)}>
       {rating}
     </Badge>
   );
@@ -48,12 +50,14 @@ export function PercentCell({ value }: { value: number | null }) {
 export interface GetIntelTableColumnsParams {
   onAddToWatchlist: (e: React.MouseEvent, symbol: string) => void;
   onAnalyze: (e: React.MouseEvent, row: any) => void;
+  onCompare?: (symbol: string) => void;
   analyzingSymbol: string | null;
 }
 
 export function getIntelTableColumns({
   onAddToWatchlist,
   onAnalyze,
+  onCompare,
   analyzingSymbol,
 }: GetIntelTableColumnsParams): ColumnDef<any>[] {
   return [
@@ -85,6 +89,20 @@ export function getIntelTableColumns({
               <Sparkles className="w-4 h-4" />
             )}
           </Button>
+          {onCompare && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-sky-500 hover:bg-sky-500/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCompare(row.original.symbol);
+              }}
+              title="Compare Head-to-Head Duel"
+            >
+              <Scale className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       ),
     },

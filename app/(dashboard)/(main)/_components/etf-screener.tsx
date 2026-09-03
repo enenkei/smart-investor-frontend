@@ -10,6 +10,9 @@ import {
     DEFAULT_ETF_FILTERS,
 } from "@/app/(dashboard)/(main)/_components/screener/etf-filter-bar";
 import { getETFs, getETFSectors } from "@/controllers/stock-data-controller";
+import { Scale } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ComparisonDialog } from "@/app/(dashboard)/(main)/_components/screener/comparison-dialog";
 
 const EtfScreener = () => {
     const [search, setSearch] = React.useState("");
@@ -21,6 +24,8 @@ const EtfScreener = () => {
     const [activePresetId, setActivePresetId] = React.useState<string | null>(null);
 
     const [selectedSymbol, setSelectedSymbol] = React.useState<string | null>(null);
+    const [compareOpen, setCompareOpen] = React.useState(false);
+    const [compareSymbolA, setCompareSymbolA] = React.useState<string | undefined>(undefined);
 
     // Initial load: Sectors
     const { data: sectors = [] } = useQuery({
@@ -44,6 +49,8 @@ const EtfScreener = () => {
     const handleResetFilters = () => {
         setFilters(DEFAULT_ETF_FILTERS);
         setActivePresetId(null);
+        setSearch("");
+        setSector("All");
         setPage(1);
     };
 
@@ -88,12 +95,26 @@ const EtfScreener = () => {
     return (
         <div className="flex h-full bg-background overflow-hidden">
             <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">ETF Screener</h1>
-                    <p className="text-muted-foreground">
-                        Discover high-yield, oversold ETFs with tax-efficient structures.
-                        Showing <span className="text-foreground font-bold">{totalResults}</span> results.
-                    </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex flex-col gap-2">
+                        <h1 className="text-3xl font-bold tracking-tight">ETF Screener</h1>
+                        <p className="text-muted-foreground">
+                            Discover high-yield, oversold ETFs with tax-efficient structures.
+                            Showing <span className="text-foreground font-bold">{totalResults}</span> results.
+                        </p>
+                    </div>
+
+                    <Button
+                        variant="outline"
+                        onClick={() => {
+                            setCompareSymbolA(undefined);
+                            setCompareOpen(true);
+                        }}
+                        className="flex items-center gap-2 border-primary/40 hover:border-primary/80 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider h-10 px-4 shadow-sm self-start sm:self-auto"
+                    >
+                        <Scale className="w-4 h-4 text-primary" />
+                        <span>Head-to-Head Duel</span>
+                    </Button>
                 </div>
 
                 {/* Finviz-Style ETF Filter Bar & Presets */}
@@ -144,9 +165,20 @@ const EtfScreener = () => {
                         page={page}
                         totalPages={totalPages}
                         onPageChange={handlePageChange}
+                        onCompare={(sym) => {
+                            setCompareSymbolA(sym);
+                            setCompareOpen(true);
+                        }}
                     />
                 </section>
             </div>
+
+            {/* Head-to-Head Comparison Dialog */}
+            <ComparisonDialog
+                open={compareOpen}
+                onOpenChange={setCompareOpen}
+                initialSymbolA={compareSymbolA}
+            />
         </div>
     );
 };

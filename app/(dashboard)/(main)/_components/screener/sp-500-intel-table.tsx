@@ -27,12 +27,6 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 import {
@@ -43,7 +37,6 @@ import {
   Search,
   Filter,
   Sparkles,
-  Loader2,
   X,
 } from "lucide-react";
 import { addToWatchlist } from "@/controllers/stock-data-controller";
@@ -51,6 +44,7 @@ import { analyzeSelectedStock, StockDetail } from "@/controllers/ai-controller";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSp500IntelTableColumns } from "./sp-500-intel-table-columns";
+import { AnalysisDialog } from "./analysis-dialog";
 
 interface Sp500IntelTableProps {
   data: any[];
@@ -65,6 +59,7 @@ interface Sp500IntelTableProps {
   page: number;
   totalPages: number;
   onPageChange: (newPage: number) => void;
+  onCompare?: (symbol: string) => void;
 }
 
 export function Sp500IntelTable({
@@ -79,7 +74,8 @@ export function Sp500IntelTable({
   sectors,
   page,
   totalPages,
-  onPageChange
+  onPageChange,
+  onCompare,
 }: Sp500IntelTableProps) {
   const [flyingItems, setFlyingItems] = React.useState<{ id: number; x: number; y: number; symbol: string }[]>([]);
   const [analyzingSymbol, setAnalyzingSymbol] = React.useState<string | null>(null);
@@ -134,19 +130,28 @@ export function Sp500IntelTable({
       symbol: row.ticker,
       name: row.name || '',
       sector: row.sector || '',
+      marketCap: row.market_cap ? Number(row.market_cap) : null,
       price: row.prev_close ? Number(row.prev_close) : (row.current_price ? Number(row.current_price) : null),
-      adaptiveScore: row.adaptive_total_score ? Number(row.adaptive_total_score) : null,
-      qualityScore: row.quality_score ? Number(row.quality_score) : null,
+      oneDayChange: row.one_day_change ? Number(row.one_day_change) : null,
+      totalReturn: row.total_return ? Number(row.total_return) : null,
+      peRatio: row.pe_ratio ? Number(row.pe_ratio) : null,
+      fcfYield: row.fcf_yield ? Number(row.fcf_yield) : null,
+      operatingMargins: row.operating_margins ? Number(row.operating_margins) : null,
+      roe: row.roe ? Number(row.roe) : null,
+      revenueGrowth: row.revenue_growth ? Number(row.revenue_growth) : null,
+      epsGrowth5y: row.eps_growth_5y ? Number(row.eps_growth_5y) : null,
+      deRatio: row.de_ratio ? Number(row.de_ratio) : null,
+      currentRatio: row.current_ratio ? Number(row.current_ratio) : null,
       divYield: row.dividend_yield ? Number(row.dividend_yield) : null,
       divCagr5y: row.dividend_cagr_5y ? Number(row.dividend_cagr_5y) : null,
       payoutRatio: row.payout_ratio ? Number(row.payout_ratio) : null,
-      peRatio: row.pe_ratio ? Number(row.pe_ratio) : null,
-      fcfYield: row.fcf_yield ? Number(row.fcf_yield) : null,
-      deRatio: row.de_ratio ? Number(row.de_ratio) : null,
       rsi: row.rsi ? Number(row.rsi) : null,
-      totalReturn: row.total_return ? Number(row.total_return) : null,
-      epsGrowth5y: row.eps_growth_5y ? Number(row.eps_growth_5y) : null,
       beta: row.beta ? Number(row.beta) : null,
+      qualityScore: row.quality_score ? Number(row.quality_score) : null,
+      growthScore: row.growth_score ? Number(row.growth_score) : null,
+      incomeScore: row.income_score ? Number(row.income_score) : null,
+      safetyMetric: row.safety_metric ? Number(row.safety_metric) : null,
+      adaptiveScore: row.adaptive_total_score ? Number(row.adaptive_total_score) : null,
     };
 
     const res = await analyzeSelectedStock(stockData);
@@ -167,9 +172,10 @@ export function Sp500IntelTable({
       getSp500IntelTableColumns({
         onAddToWatchlist: handleAddToWatchlist,
         onAnalyze: handleAnalyze,
+        onCompare,
         analyzingSymbol,
       }),
-    [analyzingSymbol]
+    [analyzingSymbol, onCompare]
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -365,7 +371,7 @@ export function Sp500IntelTable({
         </AnimatePresence>
       </div>
 
-      <Dialog
+      <AnalysisDialog
         open={!!analysisResult || !!analyzingSymbol}
         onOpenChange={(open) => {
           if (!open) {
@@ -373,73 +379,9 @@ export function Sp500IntelTable({
             setAnalyzingSymbol(null);
           }
         }}
-      >
-        <DialogContent className="max-w-xl bg-card/95 backdrop-blur-xl border-border/50 rounded-xl shadow-2xl">
-          <DialogHeader className="border-b border-border/50 pb-4">
-            <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tight text-primary">
-              <Sparkles className="w-5 h-5 text-amber-500" />
-              AI Analysis: {analysisResult?.symbol || analyzingSymbol}
-            </DialogTitle>
-          </DialogHeader>
-
-          {analyzingSymbol && !analysisResult && (
-            <div className="flex flex-col items-center justify-center py-16 gap-6">
-              <div className="relative flex items-center justify-center">
-                <div className="absolute w-16 h-16 border-4 border-primary/20 rounded-full animate-ping" />
-                <Loader2 className="w-10 h-10 animate-spin text-primary relative z-10" />
-              </div>
-              <div className="flex flex-col items-center gap-2">
-                <p className="text-sm font-mono font-bold text-foreground">Running quantitative analysis...</p>
-                <p className="text-xs text-muted-foreground">Evaluating valuation, momentum, and risk metrics</p>
-              </div>
-            </div>
-          )}
-
-          {analysisResult && (
-            <div className="space-y-6 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div>
-                <strong className="text-primary uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Overview</strong>
-                <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.overview}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 bg-background/30 p-4 rounded-lg border border-border/50">
-                <div>
-                  <strong className="text-emerald-500 uppercase text-[10px] font-black tracking-[0.2em] block mb-2">Pros</strong>
-                  <ul className="list-disc pl-4 text-muted-foreground text-xs space-y-1.5 marker:text-emerald-500/50">
-                    {analysisResult.pros?.map((p: string, i: number) => <li key={i}>{p}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <strong className="text-rose-500 uppercase text-[10px] font-black tracking-[0.2em] block mb-2">Risks & Cons</strong>
-                  <ul className="list-disc pl-4 text-muted-foreground text-xs space-y-1.5 marker:text-rose-500/50">
-                    {analysisResult.cons?.map((c: string, i: number) => <li key={i}>{c}</li>)}
-                  </ul>
-                </div>
-              </div>
-
-              <div>
-                <strong className="text-blue-500 uppercase text-[10px] font-black tracking-[0.2em] opacity-70 block mb-2">Suitability</strong>
-                <p className="text-muted-foreground text-sm leading-relaxed">{analysisResult.suitability}</p>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-border/50 bg-muted/10 p-4 rounded-lg mt-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground">Verdict</span>
-                  <Badge variant={analysisResult.verdict?.includes('Buy') ? 'default' : analysisResult.verdict?.includes('Sell') ? 'destructive' : 'secondary'} className="uppercase font-black text-[10px] px-3 py-1 shadow-sm">
-                    {analysisResult.verdict}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground">Confidence</span>
-                  <span className="text-xs font-mono font-bold text-foreground bg-background/50 px-3 py-1 rounded border border-border/50">
-                    {analysisResult.confidenceLevel || analysisResult.confidence}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        analysisResult={analysisResult}
+        analyzingSymbol={analyzingSymbol}
+      />
     </div>
   );
 }

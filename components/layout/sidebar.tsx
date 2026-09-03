@@ -33,9 +33,8 @@ import { LogoutDialog } from "@/app/(dashboard)/(main)/user/logout-confirm-dialo
 
 const navItems = [
   { name: "Screener", href: "/", icon: PieChart },
-  { name: "Market News", href: "/market-news", icon: Newspaper },
   { name: "Portfolio", href: "/portfolio", icon: Briefcase },
-  { name: "Global News", href: "/rss-feeds", icon: TrendingUp },
+  // { name: "Global News", href: "/rss-feeds", icon: TrendingUp },
   { name: "Notifications", href: "/notifications", icon: BellIcon },
   // { name: "Admin", href: "/admin", icon: SettingsIcon, adminOnly: true },
 ];
