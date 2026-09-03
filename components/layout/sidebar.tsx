@@ -88,7 +88,7 @@ export function Sidebar() {
       </nav>
 
       <div className="flex items-center gap-3 pl-6 border-l-4 border-r-4 border-primary mb-2">
-        <div className="flex flex-col items-end mr-1 font-sans">
+        <div className="flex flex-col items-end mr-1">
           <span className="text-sm font-bold leading-none text-foreground">
             {user?.name || ""}
           </span>
@@ -106,16 +106,16 @@ export function Sidebar() {
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 mt-2 font-sans">
+          <DropdownMenuContent align="end" className="w-56 mt-2">
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer font-sans text-sm py-2.5">
+              <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer text-sm py-2.5">
                 <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
                 <span>Account Settings</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             {isAdmin && <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push("/admin")} className="cursor-pointer font-sans text-sm py-2.5">
+              <DropdownMenuItem onClick={() => router.push("/admin")} className="cursor-pointer text-sm py-2.5">
                 <CogIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                 <span>Admin</span>
               </DropdownMenuItem>
@@ -123,7 +123,7 @@ export function Sidebar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => setLogoutOpen(true)}
-              className="text-destructive focus:text-destructive cursor-pointer font-sans"
+              className="text-destructive focus:text-destructive cursor-pointer"
             >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>

@@ -1,8 +1,8 @@
 "use server"
 
-import { prisma } from "@/lib/prisma";
-import { SystemSetting } from "@/generated/prisma/client";
-
+import { db } from "@/lib/db";
+import { systemSettings, SystemSetting } from "@/lib/db/schema";
+import { eq, asc } from "drizzle-orm";
 
 // XOR-Hex Encryption Logic
 const XOR_KEY = process.env.SETTINGS_ENCRYPTION_KEY || "invest-smarter-fc986e2b75df6f4ec5b2ef67296ec20e";
@@ -24,8 +24,8 @@ function decrypt(hex: string): string {
 
 export const getSystemSettings = async (): Promise<SystemSetting[]> => {
     try {
-        const settings = await prisma.systemSetting.findMany({
-            orderBy: { key: 'asc' }
+        const settings = await db.query.systemSettings.findMany({
+            orderBy: [asc(systemSettings.key)]
         });
 
         return settings.map(s => ({
@@ -43,21 +43,21 @@ export const updateSystemSettings = async (settings: SystemSetting[]) => {
         const results = [];
         for (const setting of settings) {
             const encrypted = encrypt(setting.value);
-            const updated = await prisma.systemSetting.upsert({
-                where: { key: setting.key },
-                update: {
+            const [updated] = await db.insert(systemSettings).values({
+                key: setting.key,
+                name: setting.name,
+                description: setting.description,
+                value: encrypted,
+                updatedAt: new Date(),
+            }).onConflictDoUpdate({
+                target: systemSettings.key,
+                set: {
                     name: setting.name,
                     description: setting.description,
                     value: encrypted,
-                    updatedAt: new Date()
-                },
-                create: {
-                    key: setting.key,
-                    name: setting.name,
-                    description: setting.description,
-                    value: encrypted
-                },
-            });
+                    updatedAt: new Date(),
+                }
+            }).returning();
             results.push(updated);
         }
         return results;
@@ -69,9 +69,8 @@ export const updateSystemSettings = async (settings: SystemSetting[]) => {
 
 export const deleteSystemSetting = async (key: string) => {
     try {
-        return await prisma.systemSetting.delete({
-            where: { key }
-        });
+        const [deleted] = await db.delete(systemSettings).where(eq(systemSettings.key, key)).returning();
+        return deleted;
     } catch (err) {
         console.error("Failed to delete setting", err);
         throw err;
@@ -80,8 +79,8 @@ export const deleteSystemSetting = async (key: string) => {
 
 export const getSystemSetting = async (key: string) => {
     try {
-        const setting = await prisma.systemSetting.findUnique({
-            where: { key }
+        const setting = await db.query.systemSettings.findFirst({
+            where: eq(systemSettings.key, key)
         });
         return setting ? { ...setting, value: decrypt(setting.value) } : null;
     } catch (err) {

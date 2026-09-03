@@ -41,15 +41,15 @@ import {
   ChevronsRight,
   Search,
   Filter,
-  ArrowUpDown,
-  Plus,
   Sparkles,
-  Loader2
+  Loader2,
+  X,
 } from "lucide-react";
 import { addToWatchlist } from "@/controllers/stock-data-controller";
 import { analyzeSelectedEtf, EtfDetail } from "@/controllers/ai-controller";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { getIntelTableColumns } from "./intel-table-columns";
 
 interface IntelTableProps {
   data: any[];
@@ -64,12 +64,6 @@ interface IntelTableProps {
   page: number;
   totalPages: number;
   onPageChange: (newPage: number) => void;
-  dividendRating?: string;
-  onDividendRatingChange?: (rating: string) => void;
-  expensesRating?: string;
-  onExpensesRatingChange?: (rating: string) => void;
-  volatilityRating?: string;
-  onVolatilityRatingChange?: (rating: string) => void;
 }
 
 export function IntelTable({
@@ -84,13 +78,7 @@ export function IntelTable({
   sectors,
   page,
   totalPages,
-  onPageChange,
-  dividendRating,
-  onDividendRatingChange,
-  expensesRating,
-  onExpensesRatingChange,
-  volatilityRating,
-  onVolatilityRatingChange
+  onPageChange
 }: IntelTableProps) {
   const [flyingItems, setFlyingItems] = React.useState<{ id: number; x: number; y: number; symbol: string }[]>([]);
   const [analyzingSymbol, setAnalyzingSymbol] = React.useState<string | null>(null);
@@ -178,336 +166,13 @@ export function IntelTable({
   };
 
   const columns = React.useMemo<ColumnDef<any>[]>(
-    () => [
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-primary hover:bg-primary/10"
-              onClick={(e) => handleAddToWatchlist(e, row.original.symbol)}
-              title="Add to Watchlist"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-amber-500 hover:bg-amber-500/10"
-              onClick={(e) => handleAnalyze(e, row.original)}
-              title="AI Analysis"
-              disabled={analyzingSymbol === row.original.symbol}
-            >
-              {analyzingSymbol === row.original.symbol ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-            </Button>
-          </div>
-        ),
-      },
-      {
-        id: "core_identity",
-        header: () => <span className="text-primary font-black">Core Identity</span>,
-        columns: [
-          {
-            accessorKey: "symbol",
-            header: "Symbol",
-            cell: ({ row }) => (
-              <div className="flex items-center gap-3 min-w-[200px]">
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-none bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary border border-primary/20 shrink-0">
-                      {row.original.symbol}
-                    </div>
-                    <span className="text-xs font-normal text-gray-500">(${row.original.previous_closing_price})</span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground truncate" title={row.original.etf_name}>
-                    {row.original.etf_name}
-                  </span>
-                </div>
-              </div>
-            ),
-          },
-          {
-            accessorKey: "asset_class",
-            header: "Asset Class",
-            cell: ({ row }) => (
-              <Badge variant="secondary" className="text-[9px] uppercase font-bold whitespace-nowrap">
-                {row.original.asset_class || "N/A"}
-              </Badge>
-            ),
-          },
-          {
-            accessorKey: "sector",
-            header: "Sector",
-            cell: ({ row }) => (
-              <Badge variant="outline" className="text-[9px] uppercase font-bold bg-muted/30 whitespace-nowrap">
-                {row.original.sector || "N/A"}
-              </Badge>
-            ),
-          },
-        ],
-      },
-      {
-        id: "efficiency_cost",
-        header: () => <span className="text-emerald-500 font-black">Efficiency & Cost</span>,
-        columns: [
-          {
-            accessorKey: "expense_ratio",
-            header: ({ column }) => {
-              return (
-                <Button
-                  variant="ghost"
-                  onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                  Expense %
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              )
-            },
-            cell: ({ row }) => {
-              const val = row.original.expense_ratio;
-              if (val == null) return <span className="font-mono text-xs text-muted-foreground">-</span>;
-              return (
-                <span className="font-mono text-xs text-foreground font-medium">
-                  {(Number(val) * 100).toFixed(2)}%
-                </span>
-              );
-            }
-          },
-          {
-            accessorKey: "expenses_rating",
-            header: "Rating",
-            cell: ({ row }) => (
-              <RatingBadge rating={row.original.expenses_rating} />
-            )
-          },
-          {
-            accessorKey: "tax_form",
-            header: "Tax Form",
-            cell: ({ row }) => (
-              <span className={cn(
-                "text-[10px] font-bold px-1.5 py-0.5 rounded border",
-                row.original.tax_form === "K-1"
-                  ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                  : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-              )}>
-                {row.original.tax_form || "1099"}
-              </span>
-            )
-          },
-        ],
-      },
-      {
-        id: "income_engine",
-        header: () => <span className="text-blue-500 font-black">Income Engine</span>,
-        columns: [
-          {
-            accessorKey: "annual_dividend_yield_pct",
-            header: ({ column }) => {
-              return (
-                <Button
-                  variant="ghost"
-                  onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                  Yield
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              )
-            },
-            cell: ({ row }) => {
-              const val = row.original.annual_dividend_yield_pct;
-              if (val == null) return <span className="font-mono text-xs text-muted-foreground">-</span>;
-              return (
-                <span className="font-mono text-xs text-emerald-500 font-bold">
-                  {Number(val).toFixed(2)}%
-                </span>
-              );
-            }
-          },
-          {
-            accessorKey: "dividend_rating",
-            header: "Rating",
-            cell: ({ row }) => (
-              <RatingBadge rating={row.original.dividend_rating} />
-            )
-          },
-          {
-            accessorKey: "last_dividend_amount",
-            header: "Last Payout",
-            cell: ({ row }) => {
-              const val = row.original.last_dividend_amount;
-              if (val == null) return <span className="font-mono text-xs text-muted-foreground">-</span>;
-              return <span className="font-mono text-xs font-medium">${Number(val).toFixed(4)}</span>;
-            }
-          },
-        ],
-      },
-      {
-        id: "market_health",
-        header: () => <span className="text-amber-500 font-black">Market Health</span>,
-        columns: [
-          {
-            accessorKey: "total_assets",
-            header: ({ column }) => {
-              return (
-                <Button
-                  variant="ghost"
-                  onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                  Assets
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              )
-            },
-            cell: ({ row }) => {
-              const val = row.original.total_assets;
-              if (val == null) return <span className="text-muted-foreground">-</span>;
-              const assets = Number(val);
-              const formatted = assets >= 1e9
-                ? `$${(assets / 1e9).toFixed(1)}B`
-                : `$${(assets / 1e6).toFixed(1)}M`;
-              return <span className="font-mono text-xs font-medium">{formatted}</span>;
-            }
-          },
-          {
-            accessorKey: "avg_daily_volume",
-            header: "Avg Volume",
-            cell: ({ row }) => {
-              const val = row.original.avg_daily_volume;
-              if (val == null) return <span className="text-muted-foreground">-</span>;
-              const vol = Number(val);
-              const formatted = vol >= 1e6
-                ? `${(vol / 1e6).toFixed(1)}M`
-                : `${(vol / 1e3).toFixed(1)}K`;
-              return <span className="font-mono text-xs font-medium">{formatted}</span>;
-            }
-          },
-          {
-            accessorKey: "liquidity_rating",
-            header: "Liquidity",
-            cell: ({ row }) => (
-              <RatingBadge rating={row.original.liquidity_rating} />
-            )
-          },
-        ],
-      },
-      {
-        id: "momentum",
-        header: () => <span className="text-purple-500 font-black">Momentum</span>,
-        columns: [
-          {
-            accessorKey: "rsi",
-            header: ({ column }) => {
-              return (
-                <Button
-                  variant="ghost"
-                  onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                  RSI
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              )
-            },
-            cell: ({ row }) => {
-              const rsi = row.original.rsi;
-              if (rsi == null) return <span className="text-muted-foreground">-</span>;
-              const isLow = rsi < 35;
-              const isHigh = rsi > 65;
-              return (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "rounded-none font-mono text-[10px] px-2 py-0.5",
-                    isLow && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.2)]",
-                    isHigh && "bg-rose-500/10 text-rose-500 border-rose-500/20",
-                    !isLow && !isHigh && "bg-zinc-500/10 text-zinc-500 border-zinc-500/20"
-                  )}
-                >
-                  {Number(rsi).toFixed(1)}
-                </Badge>
-              );
-            },
-          },
-          {
-            accessorKey: "ytd_price_change",
-            header: ({ column }) => {
-              return (
-                <Button
-                  variant="ghost"
-                  onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                  YTD %
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              )
-            },
-            cell: ({ row }) => <PercentCell value={row.original.ytd_price_change} />
-          },
-          {
-            accessorKey: "one_month_perf",
-            header: ({ column }) => {
-              return (
-                <Button
-                  variant="ghost"
-                  onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >
-                  1M %
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              )
-            },
-            cell: ({ row }) => <PercentCell value={row.original.one_month_perf} />
-          },
-        ],
-      },
-      {
-        id: "risk_metrics",
-        header: () => <span className="text-rose-500 font-black">Risk Metrics</span>,
-        columns: [
-          {
-            accessorKey: "beta",
-            header: "Beta",
-            cell: ({ row }) => (
-              <span className="font-mono text-xs">
-                {row.original.beta != null ? Number(row.original.beta).toFixed(2) : "-"}
-              </span>
-            )
-          },
-          {
-            accessorKey: "volatility_rating",
-            header: "Volatility",
-            cell: ({ row }) => (
-              <RatingBadge rating={row.original.volatility_rating} />
-            )
-          },
-          {
-            accessorKey: "is_leveraged",
-            header: "Lev",
-            cell: ({ row }) => (
-              row.original.is_leveraged ? (
-                <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4">YES</Badge>
-              ) : <span className="text-[10px] text-muted-foreground">No</span>
-            )
-          },
-          {
-            accessorKey: "is_inverse",
-            header: "Inv",
-            cell: ({ row }) => (
-              row.original.is_inverse ? (
-                <Badge variant="destructive" className="text-[8px] px-1 py-0 h-4">YES</Badge>
-              ) : <span className="text-[10px] text-muted-foreground">No</span>
-            )
-          },
-        ],
-      },
-    ],
-    []
+    () =>
+      getIntelTableColumns({
+        onAddToWatchlist: handleAddToWatchlist,
+        onAnalyze: handleAnalyze,
+        analyzingSymbol,
+      }),
+    [analyzingSymbol]
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -523,84 +188,41 @@ export function IntelTable({
   });
 
   return (
-    <div className="space-y-4 w-[75vw]">
+    <div className="space-y-4 w-full">
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card/20 p-4 border border-border/50 rounded-lg backdrop-blur-sm">
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search symbol or name..."
-            className="pl-9 bg-background/50 border-none h-9 text-xs"
+            className="pl-9 pr-8 bg-background/50 border-none h-9 text-xs"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground rounded-sm transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <Filter className="w-3 h-3 text-muted-foreground" />
           <Select value={sector} onValueChange={onSectorChange}>
-            <SelectTrigger className="w-full md:w-[200px] bg-background/50 border-none h-9 text-xs">
-              <SelectValue placeholder="All Sectors" />
+            <SelectTrigger className="w-full md:w-[220px] bg-background/50 border-none h-9 text-xs">
+              <SelectValue placeholder="All Sectors & Categories" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Sectors</SelectItem>
+            <SelectContent className="max-h-[300px]">
+              <SelectItem value="All">All Sectors & Categories</SelectItem>
               {sectors.map(s => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto no-scrollbar py-1">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-bold uppercase text-muted-foreground whitespace-nowrap">Div:</span>
-            <Select value={dividendRating} onValueChange={onDividendRatingChange}>
-              <SelectTrigger className="w-[80px] bg-background/50 border-none h-8 text-[10px] font-black">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All</SelectItem>
-                <SelectItem value="A">A</SelectItem>
-                <SelectItem value="B">B</SelectItem>
-                <SelectItem value="C">C</SelectItem>
-                <SelectItem value="D">D</SelectItem>
-                <SelectItem value="F">F</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-bold uppercase text-muted-foreground whitespace-nowrap">Exp:</span>
-            <Select value={expensesRating} onValueChange={onExpensesRatingChange}>
-              <SelectTrigger className="w-[80px] bg-background/50 border-none h-8 text-[10px] font-black">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All</SelectItem>
-                <SelectItem value="A">A</SelectItem>
-                <SelectItem value="B">B</SelectItem>
-                <SelectItem value="C">C</SelectItem>
-                <SelectItem value="D">D</SelectItem>
-                <SelectItem value="F">F</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-bold uppercase text-muted-foreground whitespace-nowrap">Vol:</span>
-            <Select value={volatilityRating} onValueChange={onVolatilityRatingChange}>
-              <SelectTrigger className="w-[80px] bg-background/50 border-none h-8 text-[10px] font-black">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All</SelectItem>
-                <SelectItem value="A">A</SelectItem>
-                <SelectItem value="B">B</SelectItem>
-                <SelectItem value="C">C</SelectItem>
-                <SelectItem value="D">D</SelectItem>
-                <SelectItem value="F">F</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
 
@@ -822,38 +444,5 @@ export function IntelTable({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function RatingBadge({ rating }: { rating: string | null }) {
-  if (!rating) return <span className="text-muted-foreground">-</span>;
-
-  const colors: Record<string, string> = {
-    "A": "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-    "B": "bg-blue-500/10 text-blue-500 border-blue-500/20",
-    "C": "bg-amber-500/10 text-amber-500 border-amber-500/20",
-    "D": "bg-rose-500/10 text-rose-500 border-rose-500/20",
-    "F": "bg-red-500/10 text-red-500 border-red-500/20",
-  };
-
-  const colorClass = colors[rating.charAt(0)] || "bg-muted/50 text-muted-foreground border-muted/50";
-
-  return (
-    <Badge variant="outline" className={cn("text-[10px] font-black w-6 h-6 p-0 flex items-center justify-center rounded-sm", colorClass)}>
-      {rating}
-    </Badge>
-  );
-}
-
-function PercentCell({ value }: { value: number | null }) {
-  if (value == null) return <span className="font-mono text-xs text-muted-foreground">-</span>;
-  const isPos = value > 0;
-  return (
-    <span className={cn(
-      "font-mono text-xs font-bold",
-      isPos ? "text-emerald-500" : "text-rose-500"
-    )}>
-      {isPos ? "+" : ""}{value.toFixed(2)}%
-    </span>
   );
 }

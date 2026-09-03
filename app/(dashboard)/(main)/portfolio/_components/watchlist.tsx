@@ -12,7 +12,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Trash2, Loader2, Eraser } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { watchlist } from "@/generated/prisma/client";
 import {
     Dialog,
     DialogContent,

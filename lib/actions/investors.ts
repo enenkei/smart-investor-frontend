@@ -1,12 +1,14 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
+import { investorDirectory, portfolioHoldings, tickers } from "@/lib/db/schema";
+import { eq, asc, desc, inArray } from "drizzle-orm";
 
 export async function getInvestors() {
   try {
-    return await prisma.investor_directory.findMany({
-      where: { is_active: true },
-      orderBy: { display_name: "asc" },
+    return await db.query.investorDirectory.findMany({
+      where: eq(investorDirectory.is_active, true),
+      orderBy: [asc(investorDirectory.display_name)],
     });
   } catch (error) {
     console.error("Error fetching investors:", error);
@@ -17,9 +19,9 @@ export async function getInvestors() {
 export async function getInvestorHoldings(cik: string) {
   try {
     // 1. Fetch all holdings for this investor
-    const allHoldings = await prisma.portfolio_holdings.findMany({
-      where: { cik },
-      orderBy: { report_date: "desc" },
+    const allHoldings = await db.query.portfolioHoldings.findMany({
+      where: eq(portfolioHoldings.cik, cik),
+      orderBy: [desc(portfolioHoldings.report_date)],
     });
 
     if (allHoldings.length === 0) return [];
@@ -37,11 +39,11 @@ export async function getInvestorHoldings(cik: string) {
     const prevTickers = new Set(prevHoldings.map(h => h.ticker));
 
     // 3. Enrich with sector data
-    const tickers = latestHoldings.map(h => h.ticker);
-    const tickerMetadata = await prisma.tickers.findMany({
-      where: { symbol: { in: tickers } },
-      select: { symbol: true, company_name: true, exchange: true }
-    });
+    const tickerSymbols = latestHoldings.map(h => h.ticker);
+    const tickerMetadata = tickerSymbols.length > 0 ? await db.query.tickers.findMany({
+      where: inArray(tickers.symbol, tickerSymbols),
+      columns: { symbol: true, company_name: true, exchange: true }
+    }) : [];
 
     const sectorMap = new Map(tickerMetadata.map(m => [m.symbol, m.company_name]));
 

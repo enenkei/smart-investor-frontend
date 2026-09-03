@@ -39,7 +39,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { getAllUsers, createUser, deleteUser, getAvailableAvatars } from "@/controllers/user-controller";
-import { User } from "@/generated/prisma/client";
+import { User } from "@/lib/db/schema";
 
 
 const UserManagementView = () => {

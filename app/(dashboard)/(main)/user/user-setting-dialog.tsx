@@ -11,14 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, User, Lock, Check, Image as ImageIcon } from "lucide-react";
+import { Loader2, User, Lock, Check, Image as ImageIcon, Palette, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { changePassword, getMe, updateProfile, getAvailableAvatars } from "@/controllers/user-controller";
 import { useEffect } from "react";
+import { useTheme } from "next-themes";
+import { THEMES } from "@/components/theme/theme-switcher";
 
 export function UserSettingsDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
     const { user, setAuth, sessionId } = useAuthStore();
+    const { theme, setTheme } = useTheme();
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState("profile");
     const [availableAvatars, setAvailableAvatars] = useState<string[]>([]);
@@ -106,6 +109,10 @@ export function UserSettingsDialog({ open, onOpenChange }: { open: boolean, onOp
                                 <TabsTrigger value="password" className="w-full justify-start gap-3 h-11 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shadow-sm transition-all text-sm font-medium">
                                     <Lock className="h-4 w-4" />
                                     Security & Password
+                                </TabsTrigger>
+                                <TabsTrigger value="appearance" className="w-full justify-start gap-3 h-11 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground shadow-sm transition-all text-sm font-medium">
+                                    <Palette className="h-4 w-4" />
+                                    Appearance & Themes
                                 </TabsTrigger>
                             </TabsList>
 
@@ -224,11 +231,96 @@ export function UserSettingsDialog({ open, onOpenChange }: { open: boolean, onOp
                                         </div>
                                     </div>
                                 </TabsContent>
+
+                                <TabsContent value="appearance" className="mt-0 space-y-6 outline-none">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="h-5 w-5 text-primary" />
+                                            <h3 className="text-2xl font-bold tracking-tight">Appearance & Color Themes</h3>
+                                        </div>
+                                        <p className="text-muted-foreground text-sm">
+                                            Choose from 8 curated visual themes tailored for high contrast and readability.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                                        {THEMES.map((t) => {
+                                            const isSelected = theme === t.id;
+                                            return (
+                                                <div
+                                                    key={t.id}
+                                                    onClick={() => {
+                                                        setTheme(t.id);
+                                                        toast.success(`Theme switched to ${t.name}`);
+                                                    }}
+                                                    className={cn(
+                                                        "relative p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col gap-3 group hover:border-primary/60 hover:shadow-md",
+                                                        isSelected
+                                                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/40"
+                                                            : "border-border bg-card hover:bg-accent/5"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-sm tracking-tight">{t.name}</span>
+                                                            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                                                {t.category}
+                                                            </span>
+                                                        </div>
+                                                        {isSelected && (
+                                                            <span className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
+                                                                <Check className="w-3 h-3" /> Active
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <p className="text-xs text-muted-foreground line-clamp-1">{t.description}</p>
+
+                                                    {/* Color preview card */}
+                                                    <div
+                                                        className="rounded-lg p-2.5 border border-border/60 flex items-center justify-between"
+                                                        style={{ backgroundColor: t.background }}
+                                                    >
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div
+                                                                className="w-4 h-4 rounded-full flex items-center justify-center border border-border/40"
+                                                                style={{ backgroundColor: t.primary }}
+                                                            >
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                                                            </div>
+                                                            <span className="text-[10px] font-bold tracking-tight" style={{ color: t.primary }}>
+                                                                Primary
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span
+                                                                className="w-3 h-3 rounded-full border border-border/40 shadow-xs"
+                                                                style={{ backgroundColor: t.primary }}
+                                                                title="Primary"
+                                                            />
+                                                            <span
+                                                                className="w-3 h-3 rounded-full border border-border/40 shadow-xs"
+                                                                style={{ backgroundColor: t.accent }}
+                                                                title="Accent"
+                                                            />
+                                                            <span
+                                                                className="w-3 h-3 rounded-full border border-border/40 shadow-xs"
+                                                                style={{ backgroundColor: t.background }}
+                                                                title="Background"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </TabsContent>
                             </div>
                             {/* </ScrollArea> */}
 
                             {/* Action Buttons Footer */}
-                            {activeTab !== "config" && (
+                            {(activeTab === "profile" || activeTab === "password") && (
                                 <div className="p-8 border-t bg-muted/10 flex-shrink-0">
                                     <Button
                                         onClick={activeTab === "profile" ? handleUpdateProfile : handleChangePassword}

@@ -1,65 +1,82 @@
 "use client";
 
 import * as React from "react";
-import { Sp500FilterSidebar } from "@/app/(dashboard)/(main)/_components/screener/sp-500-filter-sidebar";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Sp500Visualization } from "@/app/(dashboard)/(main)/_components/screener/sp-500-visualization";
 import { Sp500IntelTable } from "@/app/(dashboard)/(main)/_components/screener/sp-500-intel-table";
-import { StockDiscoveryTabs } from "@/app/(dashboard)/(main)/_components/screener/stock-discovery-tabs";
+import {
+    Sp500FilterBar,
+    StockFilterState,
+    DEFAULT_FILTERS,
+} from "@/app/(dashboard)/(main)/_components/screener/sp-500-filter-bar";
 import { getStocksSectors, getStocks } from "@/controllers/stock-data-controller";
-import { Target, TrendingDown, Zap } from "lucide-react";
+import { Target, TrendingDown } from "lucide-react";
 
 const StocksScreener = () => {
-    const [filters, setFilters] = React.useState({
-        minYield: 0,
-        minCagr: 0,
-        maxPayout: 100,
-        maxPe: 50,
-        minFcfYield: 0,
-        maxRsi: 100,
-        dist52wLow: "all",
-    });
-
     const [search, setSearch] = React.useState("");
     const [sector, setSector] = React.useState("All");
     const [page, setPage] = React.useState(1);
-    const [limit] = React.useState(10);
-    const [totalResults, setTotalResults] = React.useState(0);
-    const [totalPages, setTotalPages] = React.useState(0);
-    const [sectors, setSectors] = React.useState<string[]>([]);
+    const limit = 10;
 
-    const [data, setData] = React.useState<any[]>([]);
-    const [loading, setLoading] = React.useState(true);
+    const [filters, setFilters] = React.useState<StockFilterState>(DEFAULT_FILTERS);
+    const [activePresetId, setActivePresetId] = React.useState<string | null>(null);
+
     const [selectedSymbol, setSelectedSymbol] = React.useState<string | null>(null);
     const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
     // Initial load: Sectors
-    React.useEffect(() => {
-        getStocksSectors().then(setSectors);
-    }, []);
+    const { data: sectors = [] } = useQuery({
+        queryKey: ["stocks", "sectors"],
+        queryFn: () => getStocksSectors(),
+        staleTime: 1000 * 60 * 60,
+    });
 
-    // Fetch data when filters or pagination change
-    React.useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const result = await getStocks({
-                page,
-                limit,
-                search,
-                sector,
-                minYield: filters.minYield,
-                minCagr: filters.minCagr,
-                maxPayout: filters.maxPayout,
-                maxPe: filters.maxPe,
-                minFcfYield: filters.minFcfYield,
-                maxRsi: filters.maxRsi
-            });
-            setData(result.stocks);
-            setTotalResults(result.total);
-            setTotalPages(result.totalPages);
-            setLoading(false);
-        };
-        fetchData();
-    }, [filters, search, sector, page, limit]);
+    const handleFilterChange = (key: keyof StockFilterState, value: string) => {
+        setFilters((prev) => ({ ...prev, [key]: value }));
+        setActivePresetId(null);
+        setPage(1);
+    };
+
+    const handleApplyPreset = (presetId: string, presetFilters: Partial<StockFilterState>) => {
+        setFilters({ ...DEFAULT_FILTERS, ...presetFilters });
+        setActivePresetId(presetId);
+        setPage(1);
+    };
+
+    const handleResetFilters = () => {
+        setFilters(DEFAULT_FILTERS);
+        setActivePresetId(null);
+        setPage(1);
+    };
+
+    const queryParams = React.useMemo(() => ({
+        page,
+        limit,
+        search,
+        sector,
+        maxPe: filters.maxPe !== "any" ? Number(filters.maxPe) : undefined,
+        minFcfYield: filters.minFcfYield !== "any" ? Number(filters.minFcfYield) : undefined,
+        maxDe: filters.maxDe !== "any" ? Number(filters.maxDe) : undefined,
+        minYield: filters.minYield !== "any" ? Number(filters.minYield) : undefined,
+        minCagr: filters.minCagr !== "any" ? Number(filters.minCagr) : undefined,
+        maxPayout: filters.maxPayout !== "any" ? Number(filters.maxPayout) : undefined,
+        rsiMode: filters.rsiMode !== "any" ? filters.rsiMode : undefined,
+        beta: filters.beta !== "any" ? filters.beta : undefined,
+        minQuality: filters.minQuality !== "any" ? Number(filters.minQuality) : undefined,
+        minMargin: filters.minMargin !== "any" ? Number(filters.minMargin) : undefined,
+    }), [page, limit, search, sector, filters]);
+
+    // Fetch data when search, sector, filters, or page changes
+    const { data: stocksResult, isLoading } = useQuery({
+        queryKey: ["stocks", queryParams],
+        queryFn: () => getStocks(queryParams),
+        placeholderData: keepPreviousData,
+    });
+
+    const data = stocksResult?.stocks ?? [];
+    const totalResults = stocksResult?.total ?? 0;
+    const totalPages = stocksResult?.totalPages ?? 0;
+    const loading = isLoading;
 
     const handleSelectSymbol = (symbol: string) => {
         setSelectedSymbol(selectedSymbol === symbol ? null : symbol);
@@ -89,10 +106,6 @@ const StocksScreener = () => {
 
     return (
         <div className="flex h-full bg-background overflow-hidden">
-            <Sp500FilterSidebar
-                filters={filters}
-                onFilterChange={(f) => { setFilters(f); setPage(1); }}
-            />
             <div
                 ref={scrollContainerRef}
                 className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar scroll-smooth"
@@ -106,44 +119,28 @@ const StocksScreener = () => {
                             <h1 className="text-4xl font-black tracking-tighter uppercase italic leading-none">The Hunter Screener</h1>
                             <p className="text-muted-foreground font-medium text-sm">
                                 Identifying high-quality value plays with technical momentum confirmation.
+                                Showing <span className="text-foreground font-bold">{totalResults}</span> results.
                             </p>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                        <div className="bg-card/40 border border-border/50 px-4 py-2 flex items-center gap-3">
-                            <div className="text-2xl font-black text-primary">{totalResults}</div>
-                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground leading-tight">
-                                Opportunities<br />Located
-                            </div>
-                        </div>
-                        <div className="bg-card/40 border border-border/50 px-4 py-2 flex items-center gap-3">
-                            <div className="text-2xl font-black text-emerald-500">
-                                {data.filter(s => (s.quality_score || 0) > 80 && (s.rsi || 0) < 35).length}
-                            </div>
-                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground leading-tight">
-                                "Double Green"<br />Signals
-                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Discovery Section */}
-                <StockDiscoveryTabs
-                    onSelectSymbol={handleSelectSymbol}
-                    selectedSymbol={selectedSymbol}
+                {/* Finviz-Style Screener Filter Bar & Presets */}
+                <Sp500FilterBar
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    onApplyPreset={handleApplyPreset}
+                    onResetFilters={handleResetFilters}
+                    activePresetId={activePresetId}
                 />
 
                 {/* Visualization Section */}
-                <section className={loading ? "opacity-50 pointer-events-none" : "animate-in fade-in slide-in-from-top-4 duration-700 bg-card/10 p-6 border border-border/30 rounded-none"}>
-                    <div className="flex items-center gap-2 mb-4">
-                        <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-                        <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Strategic Overlay</h2>
-                    </div>
+                <section className={loading ? "opacity-50 pointer-events-none" : ""}>
                     <Sp500Visualization
                         data={data}
                         onSelectSymbol={handleSelectSymbol}
                         selectedSymbol={selectedSymbol}
+                        totalResults={totalResults}
                     />
                 </section>
 

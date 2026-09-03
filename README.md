@@ -18,7 +18,7 @@ An advanced, AI-powered quantitative stock and ETF screener, portfolio manager, 
 - **Framework**: [Next.js](https://nextjs.org/) (App Router)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/)
 - **UI Components**: [shadcn/ui](https://ui.shadcn.com/)
-- **Database / ORM**: [Prisma](https://www.prisma.io/) + PostgreSQL
+- **Database / ORM**: [Drizzle ORM](https://orm.drizzle.team/) + PostgreSQL
 - **AI Integration**: [Google Generative AI SDK](https://sdk.vercel.ai/docs/introduction) (`@ai-sdk/google`)
 - **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
 
@@ -49,11 +49,10 @@ Ensure you have Node.js 18+ and a PostgreSQL database running.
    # Add any NextAuth secrets or other required variables
    ```
 
-4. Initialize the Database:
+4. Database Commands:
    ```bash
-   npx prisma generate
-   npx prisma db push
-   # or npx prisma migrate dev
+   npm run db:push
+   # or npm run db:generate
    ```
 
 5. Start the development server:

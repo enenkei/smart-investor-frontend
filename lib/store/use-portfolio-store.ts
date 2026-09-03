@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getStrategies } from '@/lib/actions/strategies';
 import { getInvestors } from '@/lib/actions/investors';
 import { getUserAssets, getUserPortfolios } from '@/lib/actions/assets';
-import { strategies, user_assets, investor_directory, user_portfolio, watchlist } from '@/generated/prisma/client';
+import { strategies, user_assets, investor_directory, user_portfolio } from '@/lib/db/schema';
 import { getWatchlist } from '@/controllers/stock-data-controller';
 
 interface PortfolioState {
@@ -12,7 +12,7 @@ interface PortfolioState {
     userPortfolios: user_portfolio[];
     isLoading: boolean;
     error: string | null;
-    watchlist: any[];
+    watchlist: Awaited<ReturnType<typeof getWatchlist>>;
 
     fetchAll: () => Promise<void>;
     fetchStrategies: () => Promise<void>;

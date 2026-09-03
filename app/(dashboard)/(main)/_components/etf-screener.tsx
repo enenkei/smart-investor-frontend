@@ -1,64 +1,81 @@
 "use client";
 
 import * as React from "react";
-import { FilterSidebar } from "@/app/(dashboard)/(main)/_components/screener/filter-sidebar";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { VisualizationLayer } from "@/app/(dashboard)/(main)/_components/screener/visualization-layer";
 import { IntelTable } from "@/app/(dashboard)/(main)/_components/screener/intel-table";
-import { ETFDiscoveryTabs } from "@/app/(dashboard)/(main)/_components/screener/etf-discovery-tabs";
+import {
+    EtfFilterBar,
+    EtfFilterState,
+    DEFAULT_ETF_FILTERS,
+} from "@/app/(dashboard)/(main)/_components/screener/etf-filter-bar";
 import { getETFs, getETFSectors } from "@/controllers/stock-data-controller";
 
 const EtfScreener = () => {
-    const [filters, setFilters] = React.useState({
-        minYield: 0,
-        maxRsi: 100,
-        maxExpense: 2.0,
-        assetClasses: ["Equity", "Fixed Income", "Commodities", "Specialty"],
-        dividendRating: "All",
-        expensesRating: "All",
-        volatilityRating: "All",
-    });
-
     const [search, setSearch] = React.useState("");
     const [sector, setSector] = React.useState("All");
     const [page, setPage] = React.useState(1);
-    const [limit] = React.useState(10);
-    const [totalResults, setTotalResults] = React.useState(0);
-    const [totalPages, setTotalPages] = React.useState(0);
-    const [sectors, setSectors] = React.useState<string[]>([]);
+    const limit = 10;
 
-    const [data, setData] = React.useState<any[]>([]);
-    const [loading, setLoading] = React.useState(true);
+    const [filters, setFilters] = React.useState<EtfFilterState>(DEFAULT_ETF_FILTERS);
+    const [activePresetId, setActivePresetId] = React.useState<string | null>(null);
+
     const [selectedSymbol, setSelectedSymbol] = React.useState<string | null>(null);
 
     // Initial load: Sectors
-    React.useEffect(() => {
-        getETFSectors().then(setSectors);
-    }, []);
+    const { data: sectors = [] } = useQuery({
+        queryKey: ["etfs", "sectors"],
+        queryFn: () => getETFSectors(),
+        staleTime: 1000 * 60 * 60,
+    });
 
-    // Fetch data when filters or pagination change
-    React.useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            const result = await getETFs({
-                page,
-                limit,
-                search,
-                sector,
-                minYield: filters.minYield,
-                maxRsi: filters.maxRsi,
-                maxExpense: filters.maxExpense,
-                assetClasses: filters.assetClasses,
-                dividendRating: filters.dividendRating,
-                expensesRating: filters.expensesRating,
-                volatilityRating: filters.volatilityRating
-            });
-            setData(result.etfs);
-            setTotalResults(result.total);
-            setTotalPages(result.totalPages);
-            setLoading(false);
-        };
-        fetchData();
-    }, [filters, search, sector, page, limit]);
+    const handleFilterChange = (key: keyof EtfFilterState, value: string) => {
+        setFilters((prev) => ({ ...prev, [key]: value }));
+        setActivePresetId(null);
+        setPage(1);
+    };
+
+    const handleApplyPreset = (presetId: string, presetFilters: Partial<EtfFilterState>) => {
+        setFilters({ ...DEFAULT_ETF_FILTERS, ...presetFilters });
+        setActivePresetId(presetId);
+        setPage(1);
+    };
+
+    const handleResetFilters = () => {
+        setFilters(DEFAULT_ETF_FILTERS);
+        setActivePresetId(null);
+        setPage(1);
+    };
+
+    const queryParams = React.useMemo(() => ({
+        page,
+        limit,
+        search,
+        sector,
+        maxExpense: filters.maxExpense !== "any" ? Number(filters.maxExpense) : undefined,
+        isLeveraged: filters.isLeveraged !== "any" ? filters.isLeveraged === "true" : undefined,
+        isInverse: filters.isInverse !== "any" ? filters.isInverse === "true" : undefined,
+        minYield: filters.minYield !== "any" ? Number(filters.minYield) : undefined,
+        dividendRating: filters.dividendRating !== "All" ? filters.dividendRating : undefined,
+        rsiMode: filters.rsiMode !== "any" ? filters.rsiMode : undefined,
+        beta: filters.beta !== "any" ? filters.beta : undefined,
+        volatilityRating: filters.volatilityRating !== "All" ? filters.volatilityRating : undefined,
+        minAssets: filters.minAssets !== "any" ? Number(filters.minAssets) : undefined,
+        expensesRating: filters.expensesRating !== "All" ? filters.expensesRating : undefined,
+        liquidityRating: filters.liquidityRating !== "All" ? filters.liquidityRating : undefined,
+    }), [page, limit, search, sector, filters]);
+
+    // Fetch data when search, sector, filters, or page changes
+    const { data: etfResult, isLoading } = useQuery({
+        queryKey: ["etfs", queryParams],
+        queryFn: () => getETFs(queryParams),
+        placeholderData: keepPreviousData,
+    });
+
+    const data = etfResult?.etfs ?? [];
+    const totalResults = etfResult?.total ?? 0;
+    const totalPages = etfResult?.totalPages ?? 0;
+    const loading = isLoading;
 
     const handleSelectSymbol = (symbol: string) => {
         setSelectedSymbol(selectedSymbol === symbol ? null : symbol);
@@ -70,7 +87,6 @@ const EtfScreener = () => {
 
     return (
         <div className="flex h-full bg-background overflow-hidden">
-            <FilterSidebar filters={filters} onFilterChange={(f) => { setFilters(f); setPage(1); }} />
             <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-3xl font-bold tracking-tight">ETF Screener</h1>
@@ -80,10 +96,13 @@ const EtfScreener = () => {
                     </p>
                 </div>
 
-                {/* Discovery Tabs Section */}
-                <ETFDiscoveryTabs
-                    onSelectSymbol={handleSelectSymbol}
-                    selectedSymbol={selectedSymbol}
+                {/* Finviz-Style ETF Filter Bar & Presets */}
+                <EtfFilterBar
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    onApplyPreset={handleApplyPreset}
+                    onResetFilters={handleResetFilters}
+                    activePresetId={activePresetId}
                 />
 
                 {/* Visualization Section */}
@@ -92,6 +111,7 @@ const EtfScreener = () => {
                         data={data}
                         onSelectSymbol={handleSelectSymbol}
                         selectedSymbol={selectedSymbol}
+                        totalResults={totalResults}
                     />
                 </section>
 
@@ -124,12 +144,6 @@ const EtfScreener = () => {
                         page={page}
                         totalPages={totalPages}
                         onPageChange={handlePageChange}
-                        dividendRating={filters.dividendRating}
-                        onDividendRatingChange={(r) => setFilters(prev => ({ ...prev, dividendRating: r, page: 1 }))}
-                        expensesRating={filters.expensesRating}
-                        onExpensesRatingChange={(r) => setFilters(prev => ({ ...prev, expensesRating: r, page: 1 }))}
-                        volatilityRating={filters.volatilityRating}
-                        onVolatilityRatingChange={(r) => setFilters(prev => ({ ...prev, volatilityRating: r, page: 1 }))}
                     />
                 </section>
             </div>

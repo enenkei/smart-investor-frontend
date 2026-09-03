@@ -1,6 +1,15 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
+import {
+    userAssets,
+    userPortfolios,
+    fundamentalScores,
+    etfMetadata,
+    tickers,
+    watchlists,
+} from "@/lib/db/schema";
+import { eq, and, or, inArray, desc, asc, ilike } from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -11,26 +20,26 @@ export async function getUserAssets() {
     const userId = (session.user as any).id;
     if (!userId) return [];
 
-    const assets = await prisma.user_assets.findMany({
-        where: { owner_id: parseInt(userId) },
-        orderBy: { symbol: 'asc' }
+    const assets = await db.query.userAssets.findMany({
+        where: eq(userAssets.owner_id, parseInt(userId)),
+        orderBy: [asc(userAssets.symbol)]
     });
 
     const uniqueSymbols = Array.from(new Set(assets.map(a => a.symbol.toUpperCase())));
 
-    const fundamentalScores = await prisma.fundamentalScores.findMany({
-        where: { ticker: { in: uniqueSymbols } },
-        select: {
+    const scores = uniqueSymbols.length > 0 ? await db.query.fundamentalScores.findMany({
+        where: inArray(fundamentalScores.ticker, uniqueSymbols),
+        columns: {
             ticker: true,
             current_price: true,
             prev_close: true,
             one_day_change: true,
             price_history: true
         }
-    });
+    }) : [];
 
     const scoreMap = new Map(
-        fundamentalScores.map(score => [score.ticker.toUpperCase(), score])
+        scores.map(score => [score.ticker.toUpperCase(), score])
     );
 
     return assets.map(a => {
@@ -51,10 +60,10 @@ export async function getUserPortfolios() {
     const userId = (session.user as any).id;
     if (!userId) return [];
 
-    const portfolios = await prisma.user_portfolio.findMany({
-        where: { owner_id: parseInt(userId) },
-        include: { userAssets: true },
-        orderBy: { updated_at: 'desc' }
+    const portfolios = await db.query.userPortfolios.findMany({
+        where: eq(userPortfolios.owner_id, parseInt(userId)),
+        with: { userAssets: true },
+        orderBy: [desc(userPortfolios.updated_at)]
     });
 
     // Gather all unique symbols across all portfolios
@@ -63,19 +72,19 @@ export async function getUserPortfolios() {
     );
 
     // Fetch pricing and historical metrics from fundamental_scores
-    const fundamentalScores = await prisma.fundamentalScores.findMany({
-        where: { ticker: { in: uniqueSymbols } },
-        select: {
+    const scores = uniqueSymbols.length > 0 ? await db.query.fundamentalScores.findMany({
+        where: inArray(fundamentalScores.ticker, uniqueSymbols),
+        columns: {
             ticker: true,
             current_price: true,
             prev_close: true,
             one_day_change: true,
             price_history: true
         }
-    });
+    }) : [];
 
     const scoreMap = new Map(
-        fundamentalScores.map(score => [score.ticker.toUpperCase(), score])
+        scores.map(score => [score.ticker.toUpperCase(), score])
     );
 
     // Map through portfolios and attach columns to user assets
@@ -94,32 +103,18 @@ export async function getUserPortfolios() {
     }));
 }
 
-// export async function updateAssetDetails(symbol: string, data: { shares_count?: number, avg_cost_basis?: number }) {
-//     const session = await getServerSession(authOptions);
-//     if (!session?.user) throw new Error("Unauthorized");
-//     const userId = (session.user as any).id;
-//     if (!userId) throw new Error("Unauthorized");
-
-//     await prisma.user_assets.update({
-//         where: { symbol },
-//         data: {
-//             shares: data.shares_count,
-//             avg_cost_basis: data.avg_cost_basis
-//         }
-//     });
-
-//     revalidatePath("/portfolio");
-// }
-
 export async function deleteAsset(symbol: string) {
     const session = await getServerSession(authOptions);
     if (!session?.user) throw new Error("Unauthorized");
     const userId = (session.user as any).id;
     if (!userId) throw new Error("Unauthorized");
 
-    await prisma.watchlist.delete({
-        where: { owner_id_symbol: { owner_id: parseInt(userId), symbol: symbol } }
-    });
+    await db.delete(watchlists).where(
+        and(
+            eq(watchlists.owner_id, parseInt(userId)),
+            eq(watchlists.symbol, symbol)
+        )
+    );
 
     revalidatePath("/portfolio");
 }
@@ -132,19 +127,17 @@ export async function addAsset(symbol: string) {
 
     const userName = session.user.name || null;
 
-    await prisma.watchlist.upsert({
-        where: {
-            owner_id_symbol: { owner_id: parseInt(userId), symbol: symbol }
-        },
-        update: {
+    await db.insert(watchlists).values({
+        symbol: symbol.toUpperCase(),
+        owner_id: parseInt(userId),
+        owner_name: userName,
+        added_at: new Date()
+    }).onConflictDoUpdate({
+        target: [watchlists.owner_id, watchlists.symbol],
+        set: {
             symbol: symbol.toUpperCase(),
             owner_name: userName,
             added_at: new Date()
-        },
-        create: {
-            symbol: symbol.toUpperCase(),
-            owner_id: parseInt(userId),
-            owner_name: userName
         }
     });
 
@@ -163,27 +156,24 @@ export async function searchTickers(query: string): Promise<TickerSearchResult[]
     const q = query.toUpperCase().trim();
 
     const [stocks, etfs] = await Promise.all([
-        prisma.tickers.findMany({
-            where: {
-                OR: [
-                    { symbol: { contains: q, mode: 'insensitive' } },
-                    { company_name: { contains: query, mode: 'insensitive' } },
-                ]
-            },
-            select: { symbol: true, company_name: true },
-            take: 10,
-        }),
-        prisma.etfMetadata.findMany({
-            where: {
-                OR: [
-                    { symbol: { contains: q, mode: 'insensitive' } },
-                    { etf_name: { contains: query, mode: 'insensitive' } },
-                ]
-            },
-            select: { symbol: true, etf_name: true },
-            take: 10,
-            distinct: ['symbol'],
-        }),
+        db.select({ symbol: tickers.symbol, company_name: tickers.company_name })
+            .from(tickers)
+            .where(
+                or(
+                    ilike(tickers.symbol, `%${q}%`),
+                    ilike(tickers.company_name, `%${query}%`)
+                )
+            )
+            .limit(10),
+        db.select({ symbol: etfMetadata.symbol, etf_name: etfMetadata.etf_name })
+            .from(etfMetadata)
+            .where(
+                or(
+                    ilike(etfMetadata.symbol, `%${q}%`),
+                    ilike(etfMetadata.etf_name, `%${query}%`)
+                )
+            )
+            .limit(10),
     ]);
 
     const seen = new Set<string>();
@@ -230,31 +220,31 @@ export async function getPortfolioCandidates(tickers: string[]): Promise<Portfol
     const userId = (session.user as any).id;
     if (!userId) return [];
 
-    // const userAssets = await prisma.user_assets.findMany({
-    //     where: { owner_id: parseInt(userId), symbol: { in: tickers } },
-    //     select: { symbol: true },
-    // });
-    // console.log(userAssets)
-    // if (userAssets.length === 0) return [];
-
-    // const symbols = userAssets.map(a => a.symbol);
-
     const symbols = tickers;
+    if (symbols.length === 0) return [];
 
-    const [fundamentals, etfs] = await Promise.all([
-        prisma.fundamentalScores.findMany({
-            where: { ticker: { in: symbols } },
-            select: { ticker: true, beta: true, total_return: true, dividend_yield: true },
-        }),
-        prisma.etfMetadata.findMany({
-            where: { symbol: { in: symbols } },
-            select: { symbol: true, beta: true, one_year_perf: true, annual_dividend_yield_pct: true },
-            distinct: ['symbol'],
-        }),
+    const [fundamentalsList, etfsList] = await Promise.all([
+        db.select({
+            ticker: fundamentalScores.ticker,
+            beta: fundamentalScores.beta,
+            total_return: fundamentalScores.total_return,
+            dividend_yield: fundamentalScores.dividend_yield
+        })
+        .from(fundamentalScores)
+        .where(inArray(fundamentalScores.ticker, symbols)),
+
+        db.select({
+            symbol: etfMetadata.symbol,
+            beta: etfMetadata.beta,
+            one_year_perf: etfMetadata.one_year_perf,
+            annual_dividend_yield_pct: etfMetadata.annual_dividend_yield_pct
+        })
+        .from(etfMetadata)
+        .where(inArray(etfMetadata.symbol, symbols))
     ]);
 
-    const stockMap = new Map(fundamentals.map(f => [f.ticker, f]));
-    const etfMap = new Map(etfs.map(e => [e.symbol!, e]));
+    const stockMap = new Map(fundamentalsList.map(f => [f.ticker, f]));
+    const etfMap = new Map(etfsList.map(e => [e.symbol, e]));
 
     const candidates: PortfolioCandidate[] = [];
     const seen = new Set<string>();
@@ -311,86 +301,63 @@ export async function saveOptimizationToPortfolio(input: SaveOptimizationInput, 
     let portfolio = null;
 
     if (portfolio_id !== -1) {
-        portfolio = await prisma.user_portfolio.findFirst({
-            where: {
-                owner_id: ownerId,
-                ...(portfolio_id > 0 ? { id: portfolio_id } : {})
-            },
-            orderBy: { updated_at: 'desc' }
+        portfolio = await db.query.userPortfolios.findFirst({
+            where: and(
+                eq(userPortfolios.owner_id, ownerId),
+                ...(portfolio_id > 0 ? [eq(userPortfolios.id, portfolio_id)] : [])
+            ),
+            orderBy: [desc(userPortfolios.updated_at)]
         });
     } else if (input.name) {
         // Step 2: Check if a portfolio with this name already exists for the user
-        portfolio = await prisma.user_portfolio.findFirst({
-            where: {
-                owner_id: ownerId,
-                name: input.name
-            }
+        portfolio = await db.query.userPortfolios.findFirst({
+            where: and(
+                eq(userPortfolios.owner_id, ownerId),
+                eq(userPortfolios.name, input.name)
+            )
         });
     }
 
-
     if (portfolio) {
-        portfolio = await prisma.user_portfolio.update({
-            where: { id: portfolio.id },
-            data: {
-                name: input.name,
-                projections: input.projections as any,
-                metrics: input.metrics as any,
-                updated_at: new Date(),
-            },
-        });
+        const [updated] = await db.update(userPortfolios).set({
+            name: input.name,
+            projections: input.projections as any,
+            metrics: input.metrics as any,
+            updated_at: new Date(),
+        }).where(eq(userPortfolios.id, portfolio.id)).returning();
+        portfolio = updated;
     } else {
-        portfolio = await prisma.user_portfolio.create({
-            data: {
-                owner_id: ownerId,
-                owner_name: ownerName,
-                name: input.name,
-                projections: input.projections as any,
-                metrics: input.metrics as any,
-                performance_tracking: {}
-            },
-        });
+        const [created] = await db.insert(userPortfolios).values({
+            owner_id: ownerId,
+            owner_name: ownerName,
+            name: input.name,
+            projections: input.projections as any,
+            metrics: input.metrics as any,
+            performance_tracking: {}
+        }).returning();
+        portfolio = created;
     }
 
     // 2. Delete existing user_assets for this portfolio
-    await prisma.user_assets.deleteMany({
-        where: { portfolio_id: portfolio.id }
-    });
+    await db.delete(userAssets).where(eq(userAssets.portfolio_id, portfolio.id));
 
     // 3. Create new user_assets
-    // Note: We use upsert here because symbol is currently the primary key in the schema,
-    // and this handles potential collisions if a symbol wasn't properly cleaned up.
-    await Promise.all(
-        input.tickers.map((symbol) =>
-            prisma.user_assets.upsert({
-                where: {
-                    owner_id_portfolio_id_symbol: {
-                        owner_id: ownerId,
-                        portfolio_id: portfolio!.id,
-                        symbol
-                    }
-                },
-
-                update: {
-                    shares: input.shares[symbol] ?? null,
-                    avg_cost_basis: input.prices[symbol] ?? null,
-                    weight: input.weights[symbol] ?? null,
-                    owner_id: ownerId,
-                    owner_name: ownerName,
-                    portfolio_id: portfolio!.id
-                },
-                create: {
+    if (input.tickers.length > 0) {
+        await Promise.all(
+            input.tickers.map((symbol) =>
+                db.insert(userAssets).values({
                     symbol,
                     shares: input.shares[symbol] ?? null,
                     avg_cost_basis: input.prices[symbol] ?? null,
                     weight: input.weights[symbol] ?? null,
                     owner_id: ownerId,
                     owner_name: ownerName,
-                    portfolio_id: portfolio!.id
-                }
-            })
-        )
-    );
+                    portfolio_id: portfolio!.id,
+                    updated_at: new Date(),
+                })
+            )
+        );
+    }
 
     revalidatePath("/portfolio");
 }
@@ -401,13 +368,14 @@ export async function deletePortfolio(id: number) {
     const userId = (session.user as any).id;
     if (!userId) throw new Error("Unauthorized");
 
-    await prisma.user_assets.deleteMany({
-        where: { portfolio_id: id }
-    });
+    await db.delete(userAssets).where(eq(userAssets.portfolio_id, id));
 
-    await prisma.user_portfolio.delete({
-        where: { id: id, owner_id: parseInt(userId) }
-    });
+    await db.delete(userPortfolios).where(
+        and(
+            eq(userPortfolios.id, id),
+            eq(userPortfolios.owner_id, parseInt(userId))
+        )
+    );
 
     revalidatePath("/portfolio");
 }
@@ -418,12 +386,12 @@ export async function deleteMultipleWatchlistItems(symbols: string[]) {
     const userId = (session.user as any).id;
     if (!userId) throw new Error("Unauthorized");
 
-    await prisma.watchlist.deleteMany({
-        where: {
-            owner_id: parseInt(userId),
-            symbol: { in: symbols }
-        }
-    });
+    await db.delete(watchlists).where(
+        and(
+            eq(watchlists.owner_id, parseInt(userId)),
+            inArray(watchlists.symbol, symbols)
+        )
+    );
 
     revalidatePath("/portfolio");
 }
@@ -434,9 +402,7 @@ export async function clearWatchlist() {
     const userId = (session.user as any).id;
     if (!userId) throw new Error("Unauthorized");
 
-    await prisma.watchlist.deleteMany({
-        where: { owner_id: parseInt(userId) }
-    });
+    await db.delete(watchlists).where(eq(watchlists.owner_id, parseInt(userId)));
 
     revalidatePath("/portfolio");
 }
@@ -447,20 +413,21 @@ export async function savePerformanceResultToPortfolio(portfolioId: number, resu
     const userId = (session.user as any).id;
     if (!userId) throw new Error("Unauthorized");
 
-    // @ts-ignore
-    await prisma.user_portfolio.update({
-        where: { id: portfolioId, owner_id: parseInt(userId) },
-        data: {
-            annual_return: result.metrics.portfolio_return_1y ?? null,
-            volatility: result.metrics.portfolio_volatility_1y ?? null,
-            sharpe_ratio: result.metrics.sharpe_ratio ?? null,
-            max_drawdown: result.metrics.max_drawdown ?? null,
-            empirical_beta: result.metrics.empirical_beta ?? null,
-            diversification: result.metrics.diversification_score ?? null,
-            rating: result.health.grade ?? null,
-            performance_tracking: result as any
-        }
-    });
+    await db.update(userPortfolios).set({
+        annual_return: result.metrics?.portfolio_return_1y ?? null,
+        volatility: result.metrics?.portfolio_volatility_1y ?? null,
+        sharpe_ratio: result.metrics?.sharpe_ratio ?? null,
+        max_drawdown: result.metrics?.max_drawdown ?? null,
+        empirical_beta: result.metrics?.empirical_beta ?? null,
+        diversification: result.metrics?.diversification_score ?? null,
+        rating: result.health?.grade ?? null,
+        performance_tracking: result as any
+    }).where(
+        and(
+            eq(userPortfolios.id, portfolioId),
+            eq(userPortfolios.owner_id, parseInt(userId))
+        )
+    );
 
     revalidatePath("/portfolio");
 }

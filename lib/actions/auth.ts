@@ -1,6 +1,8 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq, count } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
@@ -13,8 +15,8 @@ export async function signUp(formData: FormData) {
     return { error: "Email and password are required" };
   }
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
+  const existingUser = await db.query.users.findFirst({
+    where: eq(users.email, email),
   });
 
   if (existingUser) {
@@ -24,19 +26,18 @@ export async function signUp(formData: FormData) {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   // Check if first user
-  const userCount = await prisma.user.count();
+  const [result] = await db.select({ value: count() }).from(users);
+  const userCount = Number(result?.value ?? 0);
   const role = userCount === 0 ? "ADMIN" : "USER";
   const sessionId = crypto.randomBytes(16).toString("hex");
 
   try {
-    await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role: role as any,
-        sessionId: sessionId,
-        isActive: false,
-      },
+    await db.insert(users).values({
+      email,
+      password: hashedPassword,
+      role,
+      sessionId,
+      isActive: false,
     });
   } catch (error) {
     console.error("Sign up error:", error);
@@ -51,7 +52,9 @@ export async function forgotPassword(formData: FormData) {
 
   if (!email) return { error: "Email is required" };
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await db.query.users.findFirst({
+    where: eq(users.email, email),
+  });
 
   if (!user) {
     return { error: "Invalid email" };
@@ -60,13 +63,13 @@ export async function forgotPassword(formData: FormData) {
   const token = crypto.randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 3600000); // 1 hour
 
-  await prisma.user.update({
-    where: { email },
-    data: {
+  await db
+    .update(users)
+    .set({
       resetToken: token,
       resetTokenExp: expires,
-    },
-  });
+    })
+    .where(eq(users.email, email));
 
   // Simulate sending email
   console.log("-----------------------------------------");
@@ -83,8 +86,8 @@ export async function resetPassword(formData: FormData) {
 
   if (!token || !password) return { error: "Invalid request" };
 
-  const user = await prisma.user.findUnique({
-    where: { resetToken: token },
+  const user = await db.query.users.findFirst({
+    where: eq(users.resetToken, token),
   });
 
   if (!user || !user.resetTokenExp || user.resetTokenExp < new Date()) {
@@ -93,14 +96,14 @@ export async function resetPassword(formData: FormData) {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
+  await db
+    .update(users)
+    .set({
       password: hashedPassword,
       resetToken: null,
       resetTokenExp: null,
-    },
-  });
+    })
+    .where(eq(users.id, user.id));
 
   redirect("/login?reset=true");
 }

@@ -28,6 +28,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserSettingsDialog } from "@/app/(dashboard)/(main)/user/user-setting-dialog";
 import { LogoutDialog } from "@/app/(dashboard)/(main)/user/logout-confirm-dialog";
+import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 
 const navItems = [
   { name: "Screener", href: "/", icon: PieChart },
@@ -81,8 +82,10 @@ export function Header() {
         </nav>
       </div>
 
-      {/* Right side: Notifications and Profile */}
-      <div className="flex items-center gap-4">
+      {/* Right side: Theme, Notifications and Profile */}
+      <div className="flex items-center gap-2">
+        <ThemeSwitcher />
+
         <button className="p-2 text-muted-foreground hover:text-primary transition-colors relative">
           <Bell className="w-4 h-4" />
           <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-rose-500 rounded-full border border-background" />
@@ -91,7 +94,7 @@ export function Header() {
         <div className="h-6 w-px bg-border mx-2" />
 
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex flex-col items-end font-sans">
+          <div className="hidden md:flex flex-col items-end">
             <span className="text-xs font-bold leading-none text-foreground">
               {user?.name || ""}
             </span>
@@ -109,9 +112,9 @@ export function Header() {
                 </AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 mt-2 font-sans">
+            <DropdownMenuContent align="end" className="w-56 mt-2">
               <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer font-sans text-sm py-2.5">
+                <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="cursor-pointer text-sm py-2.5">
                   <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
                   <span>Account Settings</span>
                 </DropdownMenuItem>
@@ -119,7 +122,7 @@ export function Header() {
               <DropdownMenuSeparator />
               {isAdmin && (
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => router.push("/admin")} className="cursor-pointer font-sans text-sm py-2.5">
+                  <DropdownMenuItem onClick={() => router.push("/admin")} className="cursor-pointer text-sm py-2.5">
                     <CogIcon className="mr-2 h-4 w-4 text-muted-foreground" />
                     <span>Admin Panel</span>
                   </DropdownMenuItem>
@@ -128,7 +131,7 @@ export function Header() {
               )}
               <DropdownMenuItem
                 onClick={() => setLogoutOpen(true)}
-                className="text-destructive focus:text-destructive cursor-pointer font-sans"
+                className="text-destructive focus:text-destructive cursor-pointer"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>

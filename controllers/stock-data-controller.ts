@@ -1,33 +1,59 @@
 'use server'
-import { prisma } from "@/lib/prisma";
+
+import { db } from "@/lib/db";
+import {
+    marketNews,
+    rssFeeds,
+    rssItems,
+    indexData,
+    etfMetadata,
+    etfCategories,
+    etfCategoryMappings,
+    fundamentalScores,
+    watchlists,
+} from "@/lib/db/schema";
+import {
+    eq,
+    and,
+    or,
+    gte,
+    lte,
+    desc,
+    inArray,
+    ilike,
+    isNotNull,
+    count,
+    sql
+} from "drizzle-orm";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
 export const getMarketNews = async (page: number = 1, limit: number = 20, ticker?: string) => {
     try {
-        let where: any = {};
+        const conditions = [];
 
         if (ticker) {
-            // Postgres JSONB containment check
-            // Note: This assumes ticker_sentiment is a JSONB array of objects
-            where = {
-                ticker_sentiment: {
-                    array_contains: [{ ticker }]
-                }
-            };
+            conditions.push(sql`${marketNews.ticker_sentiment} @> ${JSON.stringify([{ ticker }])}::jsonb`);
         }
 
-        const [news, total] = await Promise.all([
-            prisma.marketNews.findMany({
-                where,
-                orderBy: {
-                    time_published: 'desc'
-                },
-                skip: (page - 1) * limit,
-                take: limit
-            }),
-            prisma.marketNews.count({ where })
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        const offset = (page - 1) * limit;
+
+        const [news, [{ count: totalCount }]] = await Promise.all([
+            db
+                .select()
+                .from(marketNews)
+                .where(whereClause)
+                .orderBy(desc(marketNews.time_published))
+                .limit(limit)
+                .offset(offset),
+            db
+                .select({ count: count() })
+                .from(marketNews)
+                .where(whereClause)
         ]);
+
+        const total = Number(totalCount || 0);
 
         return {
             news,
@@ -43,7 +69,7 @@ export const getMarketNews = async (page: number = 1, limit: number = 20, ticker
 
 export const getFeeds = async () => {
     try {
-        const feeds = await prisma.rssFeed.findMany();
+        const feeds = await db.query.rssFeeds.findMany();
         return feeds;
     } catch (error) {
         console.error('Error fetching feeds:', error);
@@ -53,8 +79,8 @@ export const getFeeds = async () => {
 
 export const getCommodities = async () => {
     try {
-        const commodities = await prisma.commodities.findMany();
-        return commodities;
+        const result = await db.query.commodities.findMany();
+        return result;
     } catch (error) {
         console.error('Error fetching commodities:', error);
         return [];
@@ -63,15 +89,13 @@ export const getCommodities = async () => {
 
 export const getMarketSentiment = async () => {
     try {
-        const news = await prisma.marketNews.findMany({
-            select: {
-                overall_sentiment_score: true
-            },
-            orderBy: {
-                time_published: 'desc'
-            },
-            take: 100
-        });
+        const news = await db
+            .select({
+                overall_sentiment_score: marketNews.overall_sentiment_score
+            })
+            .from(marketNews)
+            .orderBy(desc(marketNews.time_published))
+            .limit(100);
 
         if (news.length === 0) return 0;
 
@@ -89,12 +113,8 @@ export const getMarketSentiment = async () => {
 export const getBenchmarkData = async () => {
     try {
         const symbols = ['^GSPC', '^DJI', '^IXIC', '^RUT', '^VIX'];
-        const data = await prisma.index_data.findMany({
-            where: {
-                symbol: {
-                    in: symbols
-                }
-            }
+        const data = await db.query.indexData.findMany({
+            where: inArray(indexData.symbol, symbols)
         });
         return data;
     } catch (error) {
@@ -102,11 +122,12 @@ export const getBenchmarkData = async () => {
         return [];
     }
 }
+
 export const getMacroData = async () => {
     try {
         const [indicators, commodityData] = await Promise.all([
-            prisma.economicIndicator.findMany(),
-            prisma.commodities.findMany()
+            db.query.economicIndicators.findMany(),
+            db.query.commodities.findMany()
         ]);
         return {
             indicators: indicators.map(i => ({ ...i, data: typeof i.data === 'string' ? JSON.parse(i.data) : i.data })),
@@ -120,16 +141,15 @@ export const getMacroData = async () => {
 
 export const getRSSFeeds = async () => {
     try {
-        // 1. Get basic feed status
-        const feeds = await prisma.rssFeed.findMany({
-            select: {
-                id: true,
-                name: true,
-                url: true,
-                is_active: true,
-                last_updated: true
-            }
-        });
+        const feeds = await db
+            .select({
+                id: rssFeeds.id,
+                name: rssFeeds.name,
+                url: rssFeeds.url,
+                is_active: rssFeeds.is_active,
+                last_updated: rssFeeds.last_updated
+            })
+            .from(rssFeeds);
 
         return feeds;
     } catch (error) {
@@ -140,14 +160,10 @@ export const getRSSFeeds = async () => {
 
 export const getRSSItems = async (feedId: number) => {
     try {
-        const items = await prisma.rssItem.findMany({
-            where: {
-                feed_id: feedId
-            },
-            orderBy: {
-                published_at: 'desc'
-            },
-            take: 20
+        const items = await db.query.rssItems.findMany({
+            where: eq(rssItems.feed_id, feedId),
+            orderBy: [desc(rssItems.published_at)],
+            limit: 20
         });
         return items;
     } catch (error) {
@@ -155,7 +171,6 @@ export const getRSSItems = async (feedId: number) => {
         return [];
     }
 }
-
 
 export const getETFs = async (params: {
     page?: number;
@@ -169,6 +184,12 @@ export const getETFs = async (params: {
     dividendRating?: string;
     expensesRating?: string;
     volatilityRating?: string;
+    liquidityRating?: string;
+    minAssets?: number;
+    rsiMode?: string;
+    beta?: string;
+    isLeveraged?: boolean;
+    isInverse?: boolean;
 }) => {
     const {
         page = 1,
@@ -181,65 +202,146 @@ export const getETFs = async (params: {
         assetClasses,
         dividendRating,
         expensesRating,
-        volatilityRating
+        volatilityRating,
+        liquidityRating,
+        minAssets,
+        rsiMode,
+        beta,
+        isLeveraged,
+        isInverse
     } = params;
 
     try {
-        let where: any = {};
+        const conditions = [];
 
         if (search) {
-            where.OR = [
-                { symbol: { contains: search, mode: 'insensitive' } },
-                { etf_name: { contains: search, mode: 'insensitive' } }
-            ];
+            conditions.push(
+                or(
+                    ilike(etfMetadata.symbol, `%${search}%`),
+                    ilike(etfMetadata.etf_name, `%${search}%`)
+                )
+            );
         }
 
         if (sector && sector !== 'All') {
-            where.sector = sector;
+            const catSubquery = db
+                .select({ symbol: etfCategoryMappings.symbol })
+                .from(etfCategoryMappings)
+                .innerJoin(etfCategories, eq(etfCategoryMappings.category_id, etfCategories.id))
+                .where(or(
+                    eq(etfCategories.name, sector),
+                    eq(etfCategories.slug, sector)
+                ));
+
+            conditions.push(
+                or(
+                    sql`${etfMetadata.symbol} IN (${catSubquery})`,
+                    eq(etfMetadata.asset_class, sector),
+                    eq(etfMetadata.etf_database_category, sector)
+                )
+            );
         }
 
         if (minYield !== undefined && minYield > 0) {
-            where.annual_dividend_yield_pct = { gte: minYield };
+            const threshold = minYield > 1 ? minYield / 100 : minYield;
+            conditions.push(gte(etfMetadata.annual_dividend_yield_pct, threshold));
         }
 
         if (maxRsi !== undefined && maxRsi < 100) {
-            where.rsi = { lte: maxRsi };
+            conditions.push(lte(etfMetadata.rsi, maxRsi));
         }
 
-        if (maxExpense !== undefined) {
-            where.expense_ratio = { lte: maxExpense / 100 };
+        if (maxExpense !== undefined && maxExpense > 0) {
+            conditions.push(lte(etfMetadata.expense_ratio, maxExpense / 100));
+        }
+
+        if (minAssets !== undefined && minAssets > 0) {
+            conditions.push(gte(etfMetadata.total_assets, minAssets));
         }
 
         if (assetClasses && assetClasses.length > 0) {
-            where.asset_class = { in: assetClasses };
+            conditions.push(inArray(etfMetadata.asset_class, assetClasses));
         }
 
         if (dividendRating && dividendRating !== 'All') {
-            where.dividend_rating = dividendRating;
+            conditions.push(ilike(etfMetadata.dividend_rating, `${dividendRating}%`));
         }
 
         if (expensesRating && expensesRating !== 'All') {
-            where.expenses_rating = expensesRating;
+            conditions.push(ilike(etfMetadata.expenses_rating, `${expensesRating}%`));
         }
 
         if (volatilityRating && volatilityRating !== 'All') {
-            where.volatility_rating = volatilityRating;
+            conditions.push(ilike(etfMetadata.volatility_rating, `${volatilityRating}%`));
         }
 
-        const [etfs, total] = await Promise.all([
-            prisma.etfMetadata.findMany({
-                where,
-                skip: (page - 1) * limit,
-                take: limit,
-                orderBy: {
-                    total_assets: 'desc'
-                }
-            }),
-            prisma.etfMetadata.count({ where })
+        if (liquidityRating && liquidityRating !== 'All') {
+            conditions.push(ilike(etfMetadata.liquidity_rating, `${liquidityRating}%`));
+        }
+
+        if (isLeveraged !== undefined) {
+            conditions.push(eq(etfMetadata.is_leveraged, isLeveraged));
+        }
+
+        if (isInverse !== undefined) {
+            conditions.push(eq(etfMetadata.is_inverse, isInverse));
+        }
+
+        if (rsiMode === 'oversold') {
+            conditions.push(lte(etfMetadata.rsi, 35));
+        } else if (rsiMode === 'neutral') {
+            conditions.push(and(gte(etfMetadata.rsi, 35), lte(etfMetadata.rsi, 65)));
+        } else if (rsiMode === 'overbought') {
+            conditions.push(gte(etfMetadata.rsi, 65));
+        }
+
+        if (beta === 'low') {
+            conditions.push(lte(etfMetadata.beta, 0.8));
+        } else if (beta === 'moderate') {
+            conditions.push(and(gte(etfMetadata.beta, 0.8), lte(etfMetadata.beta, 1.2)));
+        } else if (beta === 'high') {
+            conditions.push(gte(etfMetadata.beta, 1.2));
+        }
+
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        const offset = (page - 1) * limit;
+
+        const orderClause = search
+            ? [
+                sql`CASE 
+                    WHEN UPPER(${etfMetadata.symbol}) = UPPER(${search}) THEN 0
+                    WHEN UPPER(${etfMetadata.symbol}) LIKE UPPER(${search + '%'}) THEN 1
+                    ELSE 2 
+                END`,
+                sql`${etfMetadata.total_assets} DESC NULLS LAST`
+              ]
+            : [sql`${etfMetadata.total_assets} DESC NULLS LAST`];
+
+        const [etfs, [{ count: totalCount }]] = await Promise.all([
+            db
+                .select()
+                .from(etfMetadata)
+                .where(whereClause)
+                .orderBy(...orderClause)
+                .limit(limit)
+                .offset(offset),
+            db
+                .select({ count: count() })
+                .from(etfMetadata)
+                .where(whereClause)
         ]);
 
+        const total = Number(totalCount || 0);
+
+        const serializedEtfs = etfs.map(etf => ({
+            ...etf,
+            sector: (etf.etf_database_category && etf.etf_database_category !== 'NaN')
+                ? etf.etf_database_category
+                : (etf.asset_class && etf.asset_class !== 'NaN' ? etf.asset_class : 'General'),
+        }));
+
         return {
-            etfs,
+            etfs: serializedEtfs,
             total,
             page,
             totalPages: Math.ceil(total / limit)
@@ -252,12 +354,27 @@ export const getETFs = async (params: {
 
 export const getETFSectors = async () => {
     try {
-        const sectors = await prisma.etfMetadata.findMany({
-            select: { sector: true },
-            distinct: ['sector'],
-            where: { sector: { not: null } }
-        });
-        return sectors.map(s => s.sector as string).filter(Boolean).sort();
+        const [categories, assetClasses, dbCategories] = await Promise.all([
+            db
+                .selectDistinct({ name: etfCategories.name })
+                .from(etfCategories)
+                .innerJoin(etfCategoryMappings, eq(etfCategories.id, etfCategoryMappings.category_id)),
+            db
+                .selectDistinct({ asset_class: etfMetadata.asset_class })
+                .from(etfMetadata)
+                .where(isNotNull(etfMetadata.asset_class)),
+            db
+                .selectDistinct({ cat: etfMetadata.etf_database_category })
+                .from(etfMetadata)
+                .where(isNotNull(etfMetadata.etf_database_category)),
+        ]);
+
+        const uniqueSectors = new Set<string>();
+        categories.forEach(c => c.name && uniqueSectors.add(c.name.trim()));
+        assetClasses.forEach(a => a.asset_class && a.asset_class !== 'NaN' && uniqueSectors.add(a.asset_class.trim()));
+        dbCategories.forEach(d => d.cat && d.cat !== 'NaN' && uniqueSectors.add(d.cat.trim()));
+
+        return Array.from(uniqueSectors).sort((a, b) => a.localeCompare(b));
     } catch (error) {
         console.error('Error fetching ETF sectors:', error);
         return [];
@@ -275,6 +392,11 @@ export const getStocks = async (params: {
     maxPe?: number;
     minFcfYield?: number;
     maxRsi?: number;
+    maxDe?: number;
+    minQuality?: number;
+    minMargin?: number;
+    beta?: string;
+    rsiMode?: string;
 }) => {
     const {
         page = 1,
@@ -286,60 +408,117 @@ export const getStocks = async (params: {
         maxPayout,
         maxPe,
         minFcfYield,
-        maxRsi
+        maxRsi,
+        maxDe,
+        minQuality,
+        minMargin,
+        beta,
+        rsiMode
     } = params;
 
     try {
-        let where: any = {};
+        const conditions = [];
+
+        // Always exclude empty/unpopulated ghost records
+        conditions.push(isNotNull(fundamentalScores.name));
 
         if (search) {
-            where.OR = [
-                { ticker: { contains: search, mode: 'insensitive' } },
-                { name: { contains: search, mode: 'insensitive' } }
-            ];
+            conditions.push(
+                or(
+                    ilike(fundamentalScores.ticker, `%${search}%`),
+                    ilike(fundamentalScores.name, `%${search}%`)
+                )
+            );
         }
 
         if (sector && sector !== 'All') {
-            where.sector = sector;
+            conditions.push(eq(fundamentalScores.sector, sector));
         }
 
         if (minYield !== undefined && minYield > 0) {
-            where.dividend_yield = { gte: minYield };
+            conditions.push(gte(fundamentalScores.dividend_yield, minYield));
         }
 
         if (minCagr !== undefined && minCagr > 0) {
-            where.dividend_cagr_5y = { gte: minCagr };
+            conditions.push(gte(fundamentalScores.dividend_cagr_5y, minCagr));
         }
 
         if (maxPayout !== undefined && maxPayout < 100) {
-            where.payout_ratio = { lte: maxPayout };
+            conditions.push(lte(fundamentalScores.payout_ratio, maxPayout));
         }
 
-        if (maxPe !== undefined && maxPe < 100) {
-            where.pe_ratio = { lte: maxPe };
+        if (maxPe !== undefined && maxPe > 0 && maxPe < 200) {
+            conditions.push(lte(fundamentalScores.pe_ratio, maxPe));
         }
 
         if (minFcfYield !== undefined && minFcfYield > 0) {
-            where.fcf_yield = { gte: minFcfYield };
+            conditions.push(gte(fundamentalScores.fcf_yield, minFcfYield));
         }
 
         if (maxRsi !== undefined && maxRsi < 100) {
-            where.rsi = { lte: maxRsi };
+            conditions.push(lte(fundamentalScores.rsi, maxRsi));
         }
 
-        const [stocks, total] = await Promise.all([
-            prisma.fundamentalScores.findMany({
-                where,
-                skip: (page - 1) * limit,
-                take: limit,
-                orderBy: {
-                    quality_score: 'desc'
-                }
-            }),
-            prisma.fundamentalScores.count({ where })
+        if (maxDe !== undefined && maxDe > 0) {
+            conditions.push(lte(fundamentalScores.de_ratio, maxDe));
+        }
+
+        if (minQuality !== undefined && minQuality > 0) {
+            const threshold = minQuality > 1 ? minQuality / 100 : minQuality;
+            conditions.push(gte(fundamentalScores.quality_score, threshold));
+        }
+
+        if (minMargin !== undefined && minMargin > 0) {
+            conditions.push(gte(fundamentalScores.operating_margins, minMargin));
+        }
+
+        if (beta === 'low') {
+            conditions.push(lte(fundamentalScores.beta, 0.8));
+        } else if (beta === 'moderate') {
+            conditions.push(and(gte(fundamentalScores.beta, 0.8), lte(fundamentalScores.beta, 1.2)));
+        } else if (beta === 'high') {
+            conditions.push(gte(fundamentalScores.beta, 1.2));
+        }
+
+        if (rsiMode === 'oversold') {
+            conditions.push(lte(fundamentalScores.rsi, 35));
+        } else if (rsiMode === 'neutral') {
+            conditions.push(and(gte(fundamentalScores.rsi, 35), lte(fundamentalScores.rsi, 65)));
+        } else if (rsiMode === 'overbought') {
+            conditions.push(gte(fundamentalScores.rsi, 65));
+        }
+
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        const offset = (page - 1) * limit;
+
+        const orderClause = search
+            ? [
+                sql`CASE 
+                    WHEN UPPER(${fundamentalScores.ticker}) = UPPER(${search}) THEN 0
+                    WHEN UPPER(${fundamentalScores.ticker}) LIKE UPPER(${search + '%'}) THEN 1
+                    ELSE 2 
+                END`,
+                sql`${fundamentalScores.quality_score} DESC NULLS LAST`
+              ]
+            : [sql`${fundamentalScores.quality_score} DESC NULLS LAST`];
+
+        const [stocks, [{ count: totalCount }]] = await Promise.all([
+            db
+                .select()
+                .from(fundamentalScores)
+                .where(whereClause)
+                .orderBy(...orderClause)
+                .limit(limit)
+                .offset(offset),
+            db
+                .select({ count: count() })
+                .from(fundamentalScores)
+                .where(whereClause)
         ]);
 
-        // Convert BigInt to Number for serialization
+        const total = Number(totalCount || 0);
+
+        // Convert BigInt to Number for serialization if needed
         const serializedStocks = stocks.map(stock => ({
             ...stock,
             operating_margins: stock.operating_margins ? Number(stock.operating_margins) : null,
@@ -360,12 +539,14 @@ export const getStocks = async (params: {
 
 export const getStocksSectors = async () => {
     try {
-        const sectors = await prisma.fundamentalScores.findMany({
-            select: { sector: true },
-            distinct: ['sector'],
-            where: { sector: { not: null } }
-        });
-        return sectors.map(s => s.sector as string).filter(Boolean).sort();
+        const sectors = await db
+            .selectDistinct({ sector: fundamentalScores.sector })
+            .from(fundamentalScores)
+            .where(isNotNull(fundamentalScores.sector));
+        return sectors
+            .map(s => s.sector as string)
+            .filter(Boolean)
+            .sort();
     } catch (error) {
         console.error('Error fetching S&P 500 sectors:', error);
         return [];
@@ -378,7 +559,8 @@ export const getWatchlist = async () => {
         if (!session?.user) return [];
 
         const userId = Number((session.user as any).id);
-        const watchlist = await prisma.$queryRaw`
+
+        const query = sql`
             WITH RawWatchlist AS (
                 SELECT 
                     w.id,
@@ -388,7 +570,7 @@ export const getWatchlist = async () => {
                     f.dividend_yield as "dividendYield",
                     'Stock' as type,
                     w.added_at
-                FROM watchlist w 
+                FROM watchlists w 
                 JOIN fundamental_scores f ON w.symbol = f.ticker
                 WHERE w.owner_id = ${userId}
                 
@@ -397,12 +579,12 @@ export const getWatchlist = async () => {
                 SELECT 
                     w.id,
                     w.symbol, 
-                    e.sector, 
+                    COALESCE(e.asset_class, 'ETF') as sector, 
                     e.previous_closing_price as "currentPrice", 
                     e.annual_dividend_yield_pct/100 as "dividendYield",
                     'ETF' as type,
                     w.added_at
-                FROM watchlist w 
+                FROM watchlists w 
                 JOIN etf_metadata e ON w.symbol = e.symbol
                 WHERE w.owner_id = ${userId}
             )
@@ -411,17 +593,15 @@ export const getWatchlist = async () => {
             ORDER BY symbol, added_at DESC
         `;
 
-        const result = (watchlist as any[]).map(item => ({
+        const { rows } = await db.execute(query);
+
+        const result = (rows as any[]).map(item => ({
             ...item,
             currentPrice: item.currentPrice ? Number(item.currentPrice) : null,
             dividendYield: item.dividendYield ? Number(item.dividendYield) : null,
         })).sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
 
         return result;
-
-
-
-
     } catch (error) {
         console.error('Error fetching watchlist:', error);
         return [];
@@ -436,21 +616,23 @@ export const addToWatchlist = async (symbol: string) => {
         const userId = Number((session.user as any).id);
         const userName = session.user.name;
 
-        const asset = await prisma.watchlist.upsert({
-            where: {
-                owner_id_symbol: { owner_id: userId, symbol: symbol }
-            },
-            update: {
-                symbol,
-                owner_name: userName,
-                added_at: new Date()
-            },
-            create: {
-                symbol,
+        const [asset] = await db
+            .insert(watchlists)
+            .values({
+                symbol: symbol.toUpperCase(),
                 owner_id: userId,
                 owner_name: userName,
-            }
-        });
+                added_at: new Date()
+            })
+            .onConflictDoUpdate({
+                target: [watchlists.owner_id, watchlists.symbol],
+                set: {
+                    symbol: symbol.toUpperCase(),
+                    owner_name: userName,
+                    added_at: new Date()
+                }
+            })
+            .returning();
 
         return { success: true, asset };
     } catch (error) {
@@ -466,16 +648,14 @@ export const removeFromWatchlist = async (symbol: string) => {
 
         const userId = Number((session.user as any).id);
 
-        await prisma.watchlist.delete({
-            where: {
-                owner_id_symbol: {
-                    owner_id: userId,
-                    symbol
-                }
-            }
-        });
-
-
+        await db
+            .delete(watchlists)
+            .where(
+                and(
+                    eq(watchlists.owner_id, userId),
+                    eq(watchlists.symbol, symbol)
+                )
+            );
 
         return { success: true };
     } catch (error) {

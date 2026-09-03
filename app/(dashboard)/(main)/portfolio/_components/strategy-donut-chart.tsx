@@ -76,8 +76,7 @@ export function StrategyDonutChart({ data }: StrategyDonutChartProps) {
             ))}
           </Pie>
           <ChartLegend
-            content={<ChartLegendContent nameKey="id" />}
-            className="flex-wrap gap-x-4 gap-y-2 mt-8 justify-center"
+            content={<ChartLegendContent nameKey="id" className="flex-wrap gap-x-4 gap-y-2 mt-8 justify-center" />}
           />
         </PieChart>
       </ChartContainer>

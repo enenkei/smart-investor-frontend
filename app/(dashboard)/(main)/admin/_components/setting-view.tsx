@@ -22,7 +22,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { SystemSetting } from "@/generated/prisma/client";
+import { SystemSetting } from "@/lib/db/schema";
 import { getSystemSettings, updateSystemSettings, deleteSystemSetting } from "@/controllers/setting-controller";
 
 const SettingView = () => {

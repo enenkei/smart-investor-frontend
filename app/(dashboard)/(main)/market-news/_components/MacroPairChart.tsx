@@ -105,7 +105,7 @@ const MacroPairChart: React.FC<MacroPairChartProps> = ({ title, pair, colors = [
                     <YAxis hide domain={['auto', 'auto']} />
 
                     <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} className="justify-start gap-4 mt-2" />
+                    <ChartLegend content={<ChartLegendContent className="justify-start gap-4 mt-2" />} />
                     {item1 && (
                         <Line
                             dataKey="val1"
