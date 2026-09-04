@@ -220,3 +220,137 @@ Asset B (${tickerB.symbol}): ${JSON.stringify(tickerB, null, 2)}`;
         return { error: "Error comparing tickers. Please try again later.", ok: false };
     }
 };
+
+export interface EtfAuditInput {
+    symbol: string;
+    name: string;
+    weight: number;
+    expenseRatio: number | null;
+    numOfHoldings: number | null;
+    pctInTop10: number | null;
+    peRatio: number | null;
+    annualDividendYield: number | null;
+    category: string;
+    assetClass: string;
+}
+
+export const auditEtfOverlapAndConcentration = async (etfs: EtfAuditInput[]) => {
+    if (!etfs || etfs.length < 2) return { error: "Please select at least 2 ETFs for an overlap audit", ok: false };
+
+    try {
+        const modelResult = await getSystemSetting(AI_MODEL);
+        const model = modelResult?.value;
+        if (!model) return { error: "AI model not found", ok: false };
+
+        const systemInstruction = `You are a chief investment strategist and quantitative ETF risk architect.
+Conduct an authoritative Overlap & Concentration Audit on the provided portfolio basket of Exchange-Traded Funds (ETFs).
+
+Analytical Directives:
+1. True Overlap Estimation:
+   - Use your comprehensive knowledge of index constituents, weighting methodologies, and holdings across major US ETFs (e.g. S&P 500, Total US Market, Nasdaq 100, Dividend indices, Thematic, International, Sector ETFs).
+   - Estimate the weighted portfolio overlap percentage (0% to 100%).
+   - Highlight exact duplications (e.g. VOO vs SPY = 100%; VOO vs VTI = ~85%; VOO vs QQQ = ~45%).
+2. Consolidated Underlying Stock Exposure:
+   - Calculate the estimated true weight of the top 6-8 underlying stocks across the whole portfolio, weighted by user allocations.
+   - Specifically note the aggregate concentration in the "Magnificent 7" / Mega-Cap Tech stocks.
+3. Redundancy & Fee Drag:
+   - Highlight any redundant holdings where the investor is paying higher expense ratios for overlapping exposure.
+4. Actionable Consolidation Strategy:
+   - Give 2-4 concrete, high-impact recommendations (e.g., "Consolidate X into Y to save fees", "Add non-correlated asset class like Small-Cap Value or International to reduce mega-cap tech tilt").`;
+
+        const prompt = `Perform an institutional Overlap & Concentration Audit on this ETF basket:
+${JSON.stringify(etfs, null, 2)}`;
+
+        const { output } = await generateText({
+            model: google(model),
+            system: systemInstruction,
+            prompt,
+            output: Output.object({
+                schema: z.object({
+                    overlapScore: z.enum(['Low Overlap (Well-Diversified)', 'Moderate Overlap', 'High Overlap (Significant Redundancy)', 'Extreme Duplication']),
+                    estimatedOverlapPct: z.number().describe("Estimated percentage overlap across the combined funds (0-100)"),
+                    diversificationGrade: z.enum(['A (Excellent)', 'B (Good)', 'C (Mediocre / Overlapping)', 'D (Illusion of Diversification)', 'F (Heavily Duplicated)']),
+                    top10AggregateConcentrationPct: z.number().describe("Estimated combined weight of the top 10 individual stocks in the entire portfolio (0-100)"),
+                    topConsolidatedHoldings: z.array(
+                        z.object({
+                            ticker: z.string(),
+                            companyName: z.string(),
+                            estimatedWeightPct: z.number().describe("Combined portfolio weight percentage"),
+                            contributingEtfs: z.array(z.string()).describe("Which ETFs contribute to this holding"),
+                        })
+                    ).describe("Top 6-8 consolidated stock positions across all selected funds"),
+                    executiveAuditSummary: z.string().describe("Concise 3-4 sentence diagnostic summary explaining whether this basket provides true diversification or is a duplication trap."),
+                    redundancyWarnings: z.array(z.string()).describe("2-3 specific warnings regarding duplicate index exposure, fee drag, or correlated volatility"),
+                    consolidationRecommendations: z.array(z.string()).describe("2-4 concrete portfolio adjustments to reduce overlap and optimize risk-adjusted returns"),
+                }),
+            }),
+            temperature: 0.2
+        });
+
+        return { ok: true, data: output };
+    } catch (error) {
+        console.error("Error auditing ETF overlap:", error);
+        return { error: "Error auditing ETF overlap. Please try again later.", ok: false };
+    }
+};
+
+export interface SnowballSimulationParams {
+    tickerSymbol?: string;
+    startingPrincipal: number;
+    monthlyContribution: number;
+    initialYieldPct: number;
+    annualDivGrowthPct: number;
+    annualAppreciationPct: number;
+    years: number;
+    dripEnabled: boolean;
+    targetMonthlyIncome: number;
+    finalPortfolioValue: number;
+    finalAnnualDividends: number;
+    finalMonthlyDividends: number;
+    crossoverYear: number | null;
+    yieldOnCostPct: number;
+    totalContributed: number;
+    totalDividendsEarned: number;
+}
+
+export const analyzeDividendSnowball = async (params: SnowballSimulationParams) => {
+    try {
+        const modelResult = await getSystemSetting(AI_MODEL);
+        const model = modelResult?.value;
+        if (!model) return { error: "AI model not found", ok: false };
+
+        const systemInstruction = `You are an expert dividend growth compounding strategist and financial independence coach.
+Analyze the user's dividend snowball simulation projection.
+
+Analytical Directives:
+1. Target Assessment: Compare their final projected monthly dividend income ($${params.finalMonthlyDividends.toFixed(0)}/mo) with their target monthly income goal ($${params.targetMonthlyIncome.toFixed(0)}/mo).
+2. The Crossover Point: The crossover point is when annual dividends exceed annual out-of-pocket contributions. Explain the compounding significance of this milestone (${params.crossoverYear ? `Year ${params.crossoverYear}` : 'Not reached within horizon'}).
+3. DRIP Impact: Highlight the compounding power of dividend reinvestment versus cashing out.
+4. Acceleration Levers: Give 2-3 specific, realistic tweaks to reach the target faster (e.g., small monthly savings increases, dividend reinvestment discipline).
+5. Longevity & Inflation Reality: Explain how dividend growth CAGR protects purchasing power against inflation compared to fixed income.`;
+
+        const prompt = `Review this dividend compounding projection:
+${JSON.stringify(params, null, 2)}`;
+
+        const { output } = await generateText({
+            model: google(model),
+            system: systemInstruction,
+            prompt,
+            output: Output.object({
+                schema: z.object({
+                    status: z.enum(['Goal Achieved Ahead of Time', 'Goal On Track', 'Modest Shortfall', 'Significant Gap']),
+                    executiveSummary: z.string().describe("Concise 2-3 sentence financial coaching overview evaluating their timeline and income trajectory."),
+                    crossoverMilestoneInsight: z.string().describe("Insight on the crossover point where compounding takes over out-of-pocket savings."),
+                    accelerationLevers: z.array(z.string()).describe("2-3 high-impact strategic actions to hit their monthly passive income goal faster"),
+                    inflationDefenseNote: z.string().describe("Brief note explaining how dividend growth protects future purchasing power"),
+                }),
+            }),
+            temperature: 0.2
+        });
+
+        return { ok: true, data: output };
+    } catch (error) {
+        console.error("Error analyzing dividend snowball:", error);
+        return { error: "Error analyzing dividend snowball. Please try again later.", ok: false };
+    }
+};

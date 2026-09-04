@@ -60,6 +60,7 @@ interface Sp500IntelTableProps {
   totalPages: number;
   onPageChange: (newPage: number) => void;
   onCompare?: (symbol: string) => void;
+  onSimulateSnowball?: (symbol: string, divYield?: number, divCagr?: number) => void;
 }
 
 export function Sp500IntelTable({
@@ -76,6 +77,7 @@ export function Sp500IntelTable({
   totalPages,
   onPageChange,
   onCompare,
+  onSimulateSnowball,
 }: Sp500IntelTableProps) {
   const [flyingItems, setFlyingItems] = React.useState<{ id: number; x: number; y: number; symbol: string }[]>([]);
   const [analyzingSymbol, setAnalyzingSymbol] = React.useState<string | null>(null);
@@ -173,9 +175,10 @@ export function Sp500IntelTable({
         onAddToWatchlist: handleAddToWatchlist,
         onAnalyze: handleAnalyze,
         onCompare,
+        onSimulateSnowball,
         analyzingSymbol,
       }),
-    [analyzingSymbol, onCompare]
+    [analyzingSymbol, onCompare, onSimulateSnowball]
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([]);

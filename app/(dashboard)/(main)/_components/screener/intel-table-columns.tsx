@@ -11,6 +11,8 @@ import {
   Loader2,
   Sparkles,
   Scale,
+  Layers,
+  Coins,
 } from "lucide-react";
 
 export function RatingBadge({ rating }: { rating: string | null }) {
@@ -28,8 +30,8 @@ export function RatingBadge({ rating }: { rating: string | null }) {
   const colorClass = colors[letter] || "bg-muted text-muted-foreground";
 
   return (
-    <Badge variant="outline" className={cn("text-[10px] font-bold px-1.5 py-0", colorClass)}>
-      {rating}
+    <Badge variant="outline" className={cn("text-[10px] font-black uppercase tracking-wider px-1.5 py-0 rounded-none border", colorClass)}>
+      {letter}
     </Badge>
   );
 }
@@ -51,6 +53,8 @@ export interface GetIntelTableColumnsParams {
   onAddToWatchlist: (e: React.MouseEvent, symbol: string) => void;
   onAnalyze: (e: React.MouseEvent, row: any) => void;
   onCompare?: (symbol: string) => void;
+  onAuditOverlap?: (symbol: string) => void;
+  onSimulateSnowball?: (symbol: string, divYield?: number, divCagr?: number) => void;
   analyzingSymbol: string | null;
 }
 
@@ -58,6 +62,8 @@ export function getIntelTableColumns({
   onAddToWatchlist,
   onAnalyze,
   onCompare,
+  onAuditOverlap,
+  onSimulateSnowball,
   analyzingSymbol,
 }: GetIntelTableColumnsParams): ColumnDef<any>[] {
   return [
@@ -101,6 +107,38 @@ export function getIntelTableColumns({
               title="Compare Head-to-Head Duel"
             >
               <Scale className="w-4 h-4" />
+            </Button>
+          )}
+          {onAuditOverlap && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-sky-400 hover:bg-sky-400/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAuditOverlap(row.original.symbol);
+              }}
+              title="Audit ETF Overlap & Concentration"
+            >
+              <Layers className="w-4 h-4" />
+            </Button>
+          )}
+          {onSimulateSnowball && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-emerald-400 hover:bg-emerald-400/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSimulateSnowball(
+                  row.original.symbol,
+                  row.original.annual_dividend_yield_pct ? Number(row.original.annual_dividend_yield_pct) : undefined,
+                  undefined
+                );
+              }}
+              title="Dividend Snowball & DRIP Simulator"
+            >
+              <Coins className="w-4 h-4" />
             </Button>
           )}
         </div>

@@ -18,6 +18,7 @@ import {
   ArrowUpRight,
   AlertTriangle,
   Scale,
+  Coins,
 } from "lucide-react";
 import IntelPopup from "./intel-popup";
 import StrategyPopup from "./strategy-popup";
@@ -77,6 +78,7 @@ export interface GetSp500IntelTableColumnsParams {
   onAddToWatchlist: (e: React.MouseEvent, symbol: string) => void;
   onAnalyze: (e: React.MouseEvent, row: any) => void;
   onCompare?: (symbol: string) => void;
+  onSimulateSnowball?: (symbol: string, divYield?: number, divCagr?: number) => void;
   analyzingSymbol: string | null;
 }
 
@@ -84,6 +86,7 @@ export function getSp500IntelTableColumns({
   onAddToWatchlist,
   onAnalyze,
   onCompare,
+  onSimulateSnowball,
   analyzingSymbol,
 }: GetSp500IntelTableColumnsParams): ColumnDef<any>[] {
   return [
@@ -127,6 +130,24 @@ export function getSp500IntelTableColumns({
               title="Compare Head-to-Head Duel"
             >
               <Scale className="w-4 h-4" />
+            </Button>
+          )}
+          {onSimulateSnowball && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-emerald-400 hover:bg-emerald-400/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSimulateSnowball(
+                  row.original.ticker,
+                  row.original.dividend_yield ? Number(row.original.dividend_yield) : undefined,
+                  row.original.dividend_cagr_5y ? Number(row.original.dividend_cagr_5y) : undefined
+                );
+              }}
+              title="Dividend Snowball & DRIP Simulator"
+            >
+              <Coins className="w-4 h-4" />
             </Button>
           )}
         </div>

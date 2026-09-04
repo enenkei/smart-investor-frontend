@@ -58,6 +58,8 @@ interface IntelTableProps {
   totalPages: number;
   onPageChange: (newPage: number) => void;
   onCompare?: (symbol: string) => void;
+  onAuditOverlap?: (symbol: string) => void;
+  onSimulateSnowball?: (symbol: string, divYield?: number, divCagr?: number) => void;
 }
 
 export function IntelTable({
@@ -74,6 +76,8 @@ export function IntelTable({
   totalPages,
   onPageChange,
   onCompare,
+  onAuditOverlap,
+  onSimulateSnowball,
 }: IntelTableProps) {
   const [flyingItems, setFlyingItems] = React.useState<{ id: number; x: number; y: number; symbol: string }[]>([]);
   const [analyzingSymbol, setAnalyzingSymbol] = React.useState<string | null>(null);
@@ -178,9 +182,11 @@ export function IntelTable({
         onAddToWatchlist: handleAddToWatchlist,
         onAnalyze: handleAnalyze,
         onCompare,
+        onAuditOverlap,
+        onSimulateSnowball,
         analyzingSymbol,
       }),
-    [analyzingSymbol, onCompare]
+    [analyzingSymbol, onCompare, onAuditOverlap, onSimulateSnowball]
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([]);

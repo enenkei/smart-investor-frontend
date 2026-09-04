@@ -10,9 +10,11 @@ import {
     DEFAULT_ETF_FILTERS,
 } from "@/app/(dashboard)/(main)/_components/screener/etf-filter-bar";
 import { getETFs, getETFSectors } from "@/controllers/stock-data-controller";
-import { Scale } from "lucide-react";
+import { Scale, Layers, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComparisonDialog } from "@/app/(dashboard)/(main)/_components/screener/comparison-dialog";
+import { EtfOverlapDialog } from "@/app/(dashboard)/(main)/_components/screener/etf-overlap-dialog";
+import { DividendSnowballDialog } from "@/app/(dashboard)/(main)/_components/screener/dividend-snowball-dialog";
 
 const EtfScreener = () => {
     const [search, setSearch] = React.useState("");
@@ -26,6 +28,13 @@ const EtfScreener = () => {
     const [selectedSymbol, setSelectedSymbol] = React.useState<string | null>(null);
     const [compareOpen, setCompareOpen] = React.useState(false);
     const [compareSymbolA, setCompareSymbolA] = React.useState<string | undefined>(undefined);
+    const [overlapOpen, setOverlapOpen] = React.useState(false);
+    const [overlapInitialSymbol, setOverlapInitialSymbol] = React.useState<string | undefined>(undefined);
+
+    const [snowballOpen, setSnowballOpen] = React.useState(false);
+    const [snowballTicker, setSnowballTicker] = React.useState<string | undefined>(undefined);
+    const [snowballYield, setSnowballYield] = React.useState<number | undefined>(undefined);
+    const [snowballCagr, setSnowballCagr] = React.useState<number | undefined>(undefined);
 
     // Initial load: Sectors
     const { data: sectors = [] } = useQuery({
@@ -104,17 +113,45 @@ const EtfScreener = () => {
                         </p>
                     </div>
 
-                    <Button
-                        variant="outline"
-                        onClick={() => {
-                            setCompareSymbolA(undefined);
-                            setCompareOpen(true);
-                        }}
-                        className="flex items-center gap-2 border-primary/40 hover:border-primary/80 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider h-10 px-4 shadow-sm self-start sm:self-auto"
-                    >
-                        <Scale className="w-4 h-4 text-primary" />
-                        <span>Head-to-Head Duel</span>
-                    </Button>
+                    <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setSnowballTicker(undefined);
+                                setSnowballYield(undefined);
+                                setSnowballCagr(undefined);
+                                setSnowballOpen(true);
+                            }}
+                            className="flex items-center gap-2 border-emerald-500/40 hover:border-emerald-500/80 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-500 font-bold text-xs uppercase tracking-wider h-10 px-3.5 shadow-sm"
+                        >
+                            <Coins className="w-4 h-4 text-emerald-500" />
+                            <span>Dividend Snowball</span>
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setOverlapInitialSymbol(undefined);
+                                setOverlapOpen(true);
+                            }}
+                            className="flex items-center gap-2 border-sky-500/40 hover:border-sky-500/80 bg-sky-500/5 hover:bg-sky-500/10 text-sky-400 font-bold text-xs uppercase tracking-wider h-10 px-3.5 shadow-sm"
+                        >
+                            <Layers className="w-4 h-4 text-sky-400" />
+                            <span>Overlap Auditor</span>
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setCompareSymbolA(undefined);
+                                setCompareOpen(true);
+                            }}
+                            className="flex items-center gap-2 border-primary/40 hover:border-primary/80 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs uppercase tracking-wider h-10 px-3.5 shadow-sm"
+                        >
+                            <Scale className="w-4 h-4 text-primary" />
+                            <span>Head-to-Head Duel</span>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Finviz-Style ETF Filter Bar & Presets */}
@@ -169,6 +206,16 @@ const EtfScreener = () => {
                             setCompareSymbolA(sym);
                             setCompareOpen(true);
                         }}
+                        onAuditOverlap={(sym) => {
+                            setOverlapInitialSymbol(sym);
+                            setOverlapOpen(true);
+                        }}
+                        onSimulateSnowball={(sym, yld, cagr) => {
+                            setSnowballTicker(sym);
+                            setSnowballYield(yld);
+                            setSnowballCagr(cagr);
+                            setSnowballOpen(true);
+                        }}
                     />
                 </section>
             </div>
@@ -178,6 +225,22 @@ const EtfScreener = () => {
                 open={compareOpen}
                 onOpenChange={setCompareOpen}
                 initialSymbolA={compareSymbolA}
+            />
+
+            {/* ETF Overlap & Concentration Auditor Dialog */}
+            <EtfOverlapDialog
+                open={overlapOpen}
+                onOpenChange={setOverlapOpen}
+                initialSymbol={overlapInitialSymbol}
+            />
+
+            {/* Dividend Snowball / DRIP Simulator Dialog */}
+            <DividendSnowballDialog
+                open={snowballOpen}
+                onOpenChange={setSnowballOpen}
+                initialTicker={snowballTicker}
+                initialYield={snowballYield}
+                initialDivCagr={snowballCagr}
             />
         </div>
     );

@@ -837,3 +837,51 @@ export const searchTickersForComparison = async (query: string): Promise<{ symbo
     }
 };
 
+export interface EtfAuditItem {
+    symbol: string;
+    name: string;
+    assetClass: string;
+    category: string;
+    expenseRatio: number | null;
+    totalAssets: number | null;
+    numOfHoldings: number | null;
+    pctInTop10: number | null;
+    peRatio: number | null;
+    annualDividendYield: number | null;
+    beta: number | null;
+    weight: number;
+}
+
+export const getMultipleEtfsForAudit = async (symbols: string[]): Promise<EtfAuditItem[]> => {
+    if (!symbols || symbols.length === 0) return [];
+    const cleanSyms = symbols.map(s => s.trim().toUpperCase());
+    try {
+        const etfs = await db
+            .select()
+            .from(etfMetadata)
+            .where(inArray(etfMetadata.symbol, cleanSyms));
+
+        if (etfs.length === 0) return [];
+        const equalWeight = Number((100 / etfs.length).toFixed(1));
+
+        return etfs.map(e => ({
+            symbol: e.symbol,
+            name: e.etf_name || '',
+            assetClass: e.asset_class || 'Equity',
+            category: e.etf_database_category || e.asset_class || 'ETF',
+            expenseRatio: e.expense_ratio ? Number(e.expense_ratio) : null,
+            totalAssets: e.total_assets ? Number(e.total_assets) : null,
+            numOfHoldings: e.num_of_holdings ? Number(e.num_of_holdings) : null,
+            pctInTop10: e.pct_in_top_10 ? Number(e.pct_in_top_10) : null,
+            peRatio: e.pe_ratio ? Number(e.pe_ratio) : null,
+            annualDividendYield: e.annual_dividend_yield_pct ? Number(e.annual_dividend_yield_pct) : null,
+            beta: e.beta ? Number(e.beta) : null,
+            weight: equalWeight,
+        }));
+    } catch (error) {
+        console.error("Error fetching multiple ETFs for audit:", error);
+        return [];
+    }
+};
+
+
