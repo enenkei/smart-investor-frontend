@@ -19,7 +19,15 @@ import {
   AlertTriangle,
   Scale,
   Coins,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import IntelPopup from "./intel-popup";
 import StrategyPopup from "./strategy-popup";
 
@@ -93,65 +101,91 @@ export function getSp500IntelTableColumns({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-primary hover:bg-primary/10"
-            onClick={(e) => onAddToWatchlist(e, row.original.ticker)}
-            title="Add to Watchlist"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-amber-500 hover:bg-amber-500/10"
-            onClick={(e) => onAnalyze(e, row.original)}
-            title="AI Analysis"
-            disabled={analyzingSymbol === row.original.ticker}
-          >
-            {analyzingSymbol === row.original.ticker ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4" />
-            )}
-          </Button>
-          {onCompare && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-sky-500 hover:bg-sky-500/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCompare(row.original.ticker);
-              }}
-              title="Compare Head-to-Head Duel"
-            >
-              <Scale className="w-4 h-4" />
-            </Button>
-          )}
-          {onSimulateSnowball && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-emerald-400 hover:bg-emerald-400/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSimulateSnowball(
-                  row.original.ticker,
-                  row.original.dividend_yield ? Number(row.original.dividend_yield) : undefined,
-                  row.original.dividend_cagr_5y ? Number(row.original.dividend_cagr_5y) : undefined
-                );
-              }}
-              title="Dividend Snowball & DRIP Simulator"
-            >
-              <Coins className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const ticker = row.original.ticker;
+        const isAnalyzing = analyzingSymbol === ticker;
+        const divYield = row.original.dividend_yield ? Number(row.original.dividend_yield) : undefined;
+        const divCagr = row.original.dividend_cagr_5y ? Number(row.original.dividend_cagr_5y) : undefined;
+
+        return (
+          <div className="flex items-center justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-none transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Actions"
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                  ) : (
+                    <MoreHorizontal className="w-4 h-4" />
+                  )}
+                  <span className="sr-only">Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToWatchlist(e, ticker);
+                  }}
+                >
+                  <Plus className="w-4 h-4 text-primary" />
+                  <span>Add to Watchlist</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={isAnalyzing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAnalyze(e, row.original);
+                  }}
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                  )}
+                  <span>{isAnalyzing ? "Analyzing..." : "AI Analysis"}</span>
+                </DropdownMenuItem>
+
+                {(onCompare || onSimulateSnowball) && <DropdownMenuSeparator />}
+
+                {onCompare && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCompare(ticker);
+                    }}
+                  >
+                    <Scale className="w-4 h-4 text-sky-500" />
+                    <span>Compare Head-to-Head</span>
+                  </DropdownMenuItem>
+                )}
+
+                {onSimulateSnowball && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSimulateSnowball(ticker, divYield, divCagr);
+                    }}
+                  >
+                    <Coins className="w-4 h-4 text-emerald-400" />
+                    <span>Dividend Simulator</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
     },
     {
       id: "identity",

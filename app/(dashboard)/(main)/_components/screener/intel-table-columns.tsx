@@ -13,7 +13,15 @@ import {
   Scale,
   Layers,
   Coins,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function RatingBadge({ rating }: { rating: string | null }) {
   if (!rating) return <span className="text-muted-foreground">-</span>;
@@ -70,79 +78,103 @@ export function getIntelTableColumns({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-primary hover:bg-primary/10"
-            onClick={(e) => onAddToWatchlist(e, row.original.symbol)}
-            title="Add to Watchlist"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-amber-500 hover:bg-amber-500/10"
-            onClick={(e) => onAnalyze(e, row.original)}
-            title="AI Analysis"
-            disabled={analyzingSymbol === row.original.symbol}
-          >
-            {analyzingSymbol === row.original.symbol ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4" />
-            )}
-          </Button>
-          {onCompare && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-sky-500 hover:bg-sky-500/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCompare(row.original.symbol);
-              }}
-              title="Compare Head-to-Head Duel"
-            >
-              <Scale className="w-4 h-4" />
-            </Button>
-          )}
-          {onAuditOverlap && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-sky-400 hover:bg-sky-400/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAuditOverlap(row.original.symbol);
-              }}
-              title="Audit ETF Overlap & Concentration"
-            >
-              <Layers className="w-4 h-4" />
-            </Button>
-          )}
-          {onSimulateSnowball && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-emerald-400 hover:bg-emerald-400/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSimulateSnowball(
-                  row.original.symbol,
-                  row.original.annual_dividend_yield_pct ? Number(row.original.annual_dividend_yield_pct) : undefined,
-                  undefined
-                );
-              }}
-              title="Dividend Snowball & DRIP Simulator"
-            >
-              <Coins className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const symbol = row.original.symbol;
+        const isAnalyzing = analyzingSymbol === symbol;
+        const divYield = row.original.annual_dividend_yield_pct ? Number(row.original.annual_dividend_yield_pct) : undefined;
+
+        return (
+          <div className="flex items-center justify-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-none transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Actions"
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                  ) : (
+                    <MoreHorizontal className="w-4 h-4" />
+                  )}
+                  <span className="sr-only">Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToWatchlist(e, symbol);
+                  }}
+                >
+                  <Plus className="w-4 h-4 text-primary" />
+                  <span>Add to Watchlist</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={isAnalyzing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAnalyze(e, row.original);
+                  }}
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                  )}
+                  <span>{isAnalyzing ? "Analyzing..." : "AI Analysis"}</span>
+                </DropdownMenuItem>
+
+                {(onCompare || onAuditOverlap || onSimulateSnowball) && <DropdownMenuSeparator />}
+
+                {onCompare && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCompare(symbol);
+                    }}
+                  >
+                    <Scale className="w-4 h-4 text-sky-500" />
+                    <span>Compare Head-to-Head</span>
+                  </DropdownMenuItem>
+                )}
+
+                {onAuditOverlap && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAuditOverlap(symbol);
+                    }}
+                  >
+                    <Layers className="w-4 h-4 text-sky-400" />
+                    <span>Audit ETF Overlap</span>
+                  </DropdownMenuItem>
+                )}
+
+                {onSimulateSnowball && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSimulateSnowball(symbol, divYield, undefined);
+                    }}
+                  >
+                    <Coins className="w-4 h-4 text-emerald-400" />
+                    <span>Dividend Simulator</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
     },
     {
       id: "core_identity",
@@ -171,15 +203,15 @@ export function getIntelTableColumns({
             </div>
           ),
         },
-        {
-          accessorKey: "asset_class",
-          header: "Asset Class",
-          cell: ({ row }) => (
-            <Badge variant="secondary" className="text-[9px] uppercase font-bold whitespace-nowrap">
-              {row.original.asset_class || "N/A"}
-            </Badge>
-          ),
-        },
+        // {
+        //   accessorKey: "asset_class",
+        //   header: "Asset Class",
+        //   cell: ({ row }) => (
+        //     <Badge variant="secondary" className="text-[9px] uppercase font-bold whitespace-nowrap">
+        //       {row.original.asset_class || "N/A"}
+        //     </Badge>
+        //   ),
+        // },
         {
           accessorKey: "sector",
           header: "Sector / Category",
@@ -263,7 +295,7 @@ export function getIntelTableColumns({
             if (val == null) return <span className="font-mono text-xs text-muted-foreground">-</span>;
             return (
               <span className="font-mono text-xs text-emerald-500 font-bold">
-                {(Number(val) * 100).toFixed(2)}%
+                {(Number(val)).toFixed(2)}%
               </span>
             );
           },
