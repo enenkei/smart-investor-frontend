@@ -202,6 +202,8 @@ const EtfScreener = () => {
                         page={page}
                         totalPages={totalPages}
                         onPageChange={handlePageChange}
+                        total={totalResults}
+                        pageSize={limit}
                         onCompare={(sym) => {
                             setCompareSymbolA(sym);
                             setCompareOpen(true);

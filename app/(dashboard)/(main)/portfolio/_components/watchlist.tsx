@@ -62,7 +62,7 @@ const AssetRow = ({
             </TableCell>
             <TableCell>
                 <div className="flex flex-col">
-                    <span className="font-black text-lg text-secondary italic tracking-tight">{asset.symbol}</span>
+                    <span className="font-black text-lg text-muted-foreground italic tracking-tight">{asset.symbol}</span>
                     <span className={`text-[9px] font-black w-fit px-1 leading-tight border ${asset.type === 'ETF'
                         ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
                         : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}
@@ -71,7 +71,7 @@ const AssetRow = ({
                     </span>
                 </div>
             </TableCell>
-            <TableCell className="text-[11px] font-bold uppercase tracking-tight text-muted-foreground whitespace-nowrap">
+            <TableCell className="text-[11px] font-bold uppercase tracking-tight text-accent whitespace-nowrap">
                 {asset.sector || "—"}
             </TableCell>
             <TableCell className="text-sm font-mono font-bold text-right">

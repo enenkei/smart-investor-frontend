@@ -61,7 +61,13 @@ export function StatusBar() {
         const latest = new Date(Math.max(...data.map(d => new Date(d.last_updated || 0).getTime())));
         const diffMs = new Date().getTime() - latest.getTime();
         const diffMins = Math.floor(diffMs / 60000);
-        setLastSync(diffMins < 1 ? 'Just now' : `${diffMins}m ago`);
+        setLastSync(
+          diffMins < 1
+            ? 'Just now'
+            : diffMins < 60
+              ? `${diffMins}m ago`
+              : `${Math.floor(diffMins / 60)}h ago`
+        );
       }
     };
 

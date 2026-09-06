@@ -214,11 +214,20 @@ export const getETFs = async (params: {
     try {
         const conditions = [];
 
-        if (search) {
+        const searchTokens = search ? search.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (searchTokens.length > 1) {
             conditions.push(
                 or(
-                    ilike(etfMetadata.symbol, `%${search}%`),
-                    ilike(etfMetadata.etf_name, `%${search}%`)
+                    inArray(etfMetadata.symbol, searchTokens.map(t => t.toUpperCase())),
+                    ...searchTokens.map(t => ilike(etfMetadata.symbol, `%${t}%`)),
+                    ...searchTokens.map(t => ilike(etfMetadata.etf_name, `%${t}%`))
+                )
+            );
+        } else if (searchTokens.length === 1) {
+            conditions.push(
+                or(
+                    ilike(etfMetadata.symbol, `%${searchTokens[0]}%`),
+                    ilike(etfMetadata.etf_name, `%${searchTokens[0]}%`)
                 )
             );
         }
@@ -304,18 +313,27 @@ export const getETFs = async (params: {
         }
 
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-        const offset = (page - 1) * limit;
+        const effectiveLimit = Math.max(limit, searchTokens.length);
+        const offset = (page - 1) * effectiveLimit;
 
-        const orderClause = search
+        const orderClause = searchTokens.length > 1
             ? [
                 sql`CASE 
-                    WHEN UPPER(${etfMetadata.symbol}) = UPPER(${search}) THEN 0
-                    WHEN UPPER(${etfMetadata.symbol}) LIKE UPPER(${search + '%'}) THEN 1
-                    ELSE 2 
+                    WHEN UPPER(${etfMetadata.symbol}) IN (${sql.join(searchTokens.map(t => sql`UPPER(${t})`), sql`, `)}) THEN 0
+                    ELSE 1 
                 END`,
                 sql`${etfMetadata.total_assets} DESC NULLS LAST`
               ]
-            : [sql`${etfMetadata.total_assets} DESC NULLS LAST`];
+            : (searchTokens.length === 1
+                ? [
+                    sql`CASE 
+                        WHEN UPPER(${etfMetadata.symbol}) = UPPER(${searchTokens[0]}) THEN 0
+                        WHEN UPPER(${etfMetadata.symbol}) LIKE UPPER(${searchTokens[0] + '%'}) THEN 1
+                        ELSE 2 
+                    END`,
+                    sql`${etfMetadata.total_assets} DESC NULLS LAST`
+                  ]
+                : [sql`${etfMetadata.total_assets} DESC NULLS LAST`]);
 
         const [etfs, [{ count: totalCount }]] = await Promise.all([
             db
@@ -323,7 +341,7 @@ export const getETFs = async (params: {
                 .from(etfMetadata)
                 .where(whereClause)
                 .orderBy(...orderClause)
-                .limit(limit)
+                .limit(effectiveLimit)
                 .offset(offset),
             db
                 .select({ count: count() })
@@ -344,7 +362,7 @@ export const getETFs = async (params: {
             etfs: serializedEtfs,
             total,
             page,
-            totalPages: Math.ceil(total / limit)
+            totalPages: Math.ceil(total / effectiveLimit)
         };
     } catch (error) {
         console.error('Error fetching ETFs:', error);
@@ -422,11 +440,20 @@ export const getStocks = async (params: {
         // Always exclude empty/unpopulated ghost records
         conditions.push(isNotNull(fundamentalScores.name));
 
-        if (search) {
+        const searchTokens = search ? search.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (searchTokens.length > 1) {
             conditions.push(
                 or(
-                    ilike(fundamentalScores.ticker, `%${search}%`),
-                    ilike(fundamentalScores.name, `%${search}%`)
+                    inArray(fundamentalScores.ticker, searchTokens.map(t => t.toUpperCase())),
+                    ...searchTokens.map(t => ilike(fundamentalScores.ticker, `%${t}%`)),
+                    ...searchTokens.map(t => ilike(fundamentalScores.name, `%${t}%`))
+                )
+            );
+        } else if (searchTokens.length === 1) {
+            conditions.push(
+                or(
+                    ilike(fundamentalScores.ticker, `%${searchTokens[0]}%`),
+                    ilike(fundamentalScores.name, `%${searchTokens[0]}%`)
                 )
             );
         }
@@ -489,18 +516,27 @@ export const getStocks = async (params: {
         }
 
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-        const offset = (page - 1) * limit;
+        const effectiveLimit = Math.max(limit, searchTokens.length);
+        const offset = (page - 1) * effectiveLimit;
 
-        const orderClause = search
+        const orderClause = searchTokens.length > 1
             ? [
                 sql`CASE 
-                    WHEN UPPER(${fundamentalScores.ticker}) = UPPER(${search}) THEN 0
-                    WHEN UPPER(${fundamentalScores.ticker}) LIKE UPPER(${search + '%'}) THEN 1
-                    ELSE 2 
+                    WHEN UPPER(${fundamentalScores.ticker}) IN (${sql.join(searchTokens.map(t => sql`UPPER(${t})`), sql`, `)}) THEN 0
+                    ELSE 1 
                 END`,
                 sql`${fundamentalScores.quality_score} DESC NULLS LAST`
               ]
-            : [sql`${fundamentalScores.quality_score} DESC NULLS LAST`];
+            : (searchTokens.length === 1
+                ? [
+                    sql`CASE 
+                        WHEN UPPER(${fundamentalScores.ticker}) = UPPER(${searchTokens[0]}) THEN 0
+                        WHEN UPPER(${fundamentalScores.ticker}) LIKE UPPER(${searchTokens[0] + '%'}) THEN 1
+                        ELSE 2 
+                    END`,
+                    sql`${fundamentalScores.quality_score} DESC NULLS LAST`
+                  ]
+                : [sql`${fundamentalScores.quality_score} DESC NULLS LAST`]);
 
         const [stocks, [{ count: totalCount }]] = await Promise.all([
             db
@@ -508,7 +544,7 @@ export const getStocks = async (params: {
                 .from(fundamentalScores)
                 .where(whereClause)
                 .orderBy(...orderClause)
-                .limit(limit)
+                .limit(effectiveLimit)
                 .offset(offset),
             db
                 .select({ count: count() })
@@ -529,7 +565,7 @@ export const getStocks = async (params: {
             stocks: serializedStocks,
             total,
             page,
-            totalPages: Math.ceil(total / limit)
+            totalPages: Math.ceil(total / effectiveLimit)
         };
     } catch (error) {
         console.error('Error fetching stocks:', error);
@@ -774,57 +810,67 @@ export const getTickerForComparison = async (symbol: string): Promise<Comparison
     }
 };
 
-export const searchTickersForComparison = async (query: string): Promise<{ symbol: string; name: string; type: 'STOCK' | 'ETF'; sector: string }[]> => {
+export const searchTickersForComparison = async (
+    query: string,
+    filterType?: 'STOCK' | 'ETF' | 'ALL'
+): Promise<{ symbol: string; name: string; type: 'STOCK' | 'ETF'; sector: string }[]> => {
     if (!query || query.trim().length === 0) return [];
     const q = query.trim();
 
     try {
+        const fetchStocks = filterType !== 'ETF';
+        const fetchEtfs = filterType !== 'STOCK';
+
         const [stocks, etfs] = await Promise.all([
-            db
-                .select({
-                    symbol: fundamentalScores.ticker,
-                    name: fundamentalScores.name,
-                    sector: fundamentalScores.sector,
-                })
-                .from(fundamentalScores)
-                .where(
-                    and(
-                        isNotNull(fundamentalScores.name),
-                        or(
-                            ilike(fundamentalScores.ticker, `%${q}%`),
-                            ilike(fundamentalScores.name, `%${q}%`)
+            fetchStocks
+                ? db
+                    .select({
+                        symbol: fundamentalScores.ticker,
+                        name: fundamentalScores.name,
+                        sector: fundamentalScores.sector,
+                    })
+                    .from(fundamentalScores)
+                    .where(
+                        and(
+                            isNotNull(fundamentalScores.name),
+                            or(
+                                ilike(fundamentalScores.ticker, `%${q}%`),
+                                ilike(fundamentalScores.name, `%${q}%`)
+                            )
                         )
                     )
-                )
-                .orderBy(
-                    sql`CASE 
-                        WHEN UPPER(${fundamentalScores.ticker}) = UPPER(${q}) THEN 0 
-                        WHEN UPPER(${fundamentalScores.ticker}) LIKE UPPER(${q + '%'}) THEN 1 
-                        ELSE 2 
-                    END`
-                )
-                .limit(5),
-            db
-                .select({
-                    symbol: etfMetadata.symbol,
-                    name: etfMetadata.etf_name,
-                    sector: etfMetadata.asset_class,
-                })
-                .from(etfMetadata)
-                .where(
-                    or(
-                        ilike(etfMetadata.symbol, `%${q}%`),
-                        ilike(etfMetadata.etf_name, `%${q}%`)
+                    .orderBy(
+                        sql`CASE 
+                            WHEN UPPER(${fundamentalScores.ticker}) = UPPER(${q}) THEN 0 
+                            WHEN UPPER(${fundamentalScores.ticker}) LIKE UPPER(${q + '%'}) THEN 1 
+                            ELSE 2 
+                        END`
                     )
-                )
-                .orderBy(
-                    sql`CASE 
-                        WHEN UPPER(${etfMetadata.symbol}) = UPPER(${q}) THEN 0 
-                        WHEN UPPER(${etfMetadata.symbol}) LIKE UPPER(${q + '%'}) THEN 1 
-                        ELSE 2 
-                    END`
-                )
-                .limit(5),
+                    .limit(6)
+                : Promise.resolve([]),
+            fetchEtfs
+                ? db
+                    .select({
+                        symbol: etfMetadata.symbol,
+                        name: etfMetadata.etf_name,
+                        sector: etfMetadata.asset_class,
+                    })
+                    .from(etfMetadata)
+                    .where(
+                        or(
+                            ilike(etfMetadata.symbol, `%${q}%`),
+                            ilike(etfMetadata.etf_name, `%${q}%`)
+                        )
+                    )
+                    .orderBy(
+                        sql`CASE 
+                            WHEN UPPER(${etfMetadata.symbol}) = UPPER(${q}) THEN 0 
+                            WHEN UPPER(${etfMetadata.symbol}) LIKE UPPER(${q + '%'}) THEN 1 
+                            ELSE 2 
+                        END`
+                    )
+                    .limit(6)
+                : Promise.resolve([]),
         ]);
 
         return [

@@ -17,8 +17,6 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -26,23 +24,16 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import { TablePaginationFooter } from "@/components/ui/table-pagination-footer";
 import { AnalysisDialog } from "./analysis-dialog";
 import { cn } from "@/lib/utils";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Search,
-  Filter,
-  X,
-} from "lucide-react";
+import { Filter } from "lucide-react";
 import { addToWatchlist } from "@/controllers/stock-data-controller";
 import { analyzeSelectedEtf, EtfDetail } from "@/controllers/ai-controller";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { getIntelTableColumns } from "./intel-table-columns";
+import { MultiTickerSearch } from "./multi-ticker-search";
 
 interface IntelTableProps {
   data: any[];
@@ -57,6 +48,8 @@ interface IntelTableProps {
   page: number;
   totalPages: number;
   onPageChange: (newPage: number) => void;
+  total?: number;
+  pageSize?: number;
   onCompare?: (symbol: string) => void;
   onAuditOverlap?: (symbol: string) => void;
   onSimulateSnowball?: (symbol: string, divYield?: number, divCagr?: number) => void;
@@ -75,6 +68,8 @@ export function IntelTable({
   page,
   totalPages,
   onPageChange,
+  total,
+  pageSize,
   onCompare,
   onAuditOverlap,
   onSimulateSnowball,
@@ -204,26 +199,14 @@ export function IntelTable({
   return (
     <div className="space-y-4 w-full">
       {/* Toolbar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card/20 p-4 border border-border/50 rounded-lg backdrop-blur-sm">
-        <div className="relative w-full md:w-[48%]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Search symbol or name..."
-            className="pl-9 pr-8 bg-background/50 border-none h-9 text-xs"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => onSearchChange("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-foreground rounded-sm transition-colors"
-              aria-label="Clear search"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+      <div className="relative z-30 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-card/20 p-4 border border-border/50 rounded-lg backdrop-blur-sm">
+        <MultiTickerSearch
+          value={search}
+          onChange={onSearchChange}
+          placeholder="Search ETF symbol or name (Press Enter to add)..."
+          type="ETF"
+          className="flex-1 w-full"
+        />
         <div className="flex items-center gap-3 w-full md:w-auto">
           <Filter className="w-3 h-3 text-muted-foreground" />
           <Select value={sector} onValueChange={onSectorChange}>
@@ -240,7 +223,7 @@ export function IntelTable({
         </div>
       </div>
 
-      <div className="border border-border/50 bg-card/10 backdrop-blur-sm overflow-hidden rounded-none shadow-xl">
+      <div className="relative z-0 border border-border/50 bg-card/10 backdrop-blur-sm overflow-hidden rounded-none shadow-xl">
         <div className="overflow-x-auto custom-scrollbar">
           <Table>
             <TableHeader className="bg-muted/30">
@@ -313,50 +296,16 @@ export function IntelTable({
             </TableBody>
           </Table>
         </div>
-      </div>
 
-      <div className="flex items-center justify-between px-2 py-4">
-        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-          Page <span className="text-foreground">{page}</span> of <span className="text-foreground">{totalPages}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="w-8 h-8 border-none bg-card/20"
-            onClick={() => onPageChange(1)}
-            disabled={page === 1}
-          >
-            <ChevronsLeft className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="w-8 h-8 border-none bg-card/20"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="w-8 h-8 border-none bg-card/20"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages}
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="w-8 h-8 border-none bg-card/20"
-            onClick={() => onPageChange(totalPages)}
-            disabled={page === totalPages}
-          >
-            <ChevronsRight className="w-4 h-4" />
-          </Button>
-        </div>
+        <TablePaginationFooter
+          page={page}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          total={total}
+          pageSize={pageSize}
+          itemName="ETFs"
+          loading={loading}
+        />
       </div>
 
       {/* Flying Animation Overlay */}
