@@ -13,12 +13,14 @@ import {
     Loader2,
     Zap,
     Activity,
-    Scale
+    Scale,
+    FolderPlus
 } from "lucide-react";
 import SuggestRebuildDialog from "./suggest-rebuild-dialog";
+import ManualPortfolioDialog from "./manual-portfolio-dialog";
 import { Badge } from "@/components/ui/badge";
 
-import { deleteAsset, addAsset, searchTickers, TickerSearchResult, PortfolioCandidate, getPortfolioCandidates, deleteMultipleWatchlistItems, clearWatchlist, savePerformanceResultToPortfolio } from "@/lib/actions/assets";
+import { addAsset, searchTickers, TickerSearchResult, PortfolioCandidate, getPortfolioCandidates, savePerformanceResultToPortfolio } from "@/lib/actions/assets";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import PortfolioOptimizerDialog from "./portfolio-optimizer-dialog";
@@ -31,11 +33,11 @@ import PerformanceTrackerDialog from "./performance-tracker-dialog";
 const BuildPortfolio = () => {
     const [newSymbol, setNewSymbol] = useState("");
     const [isPending, startTransition] = useTransition();
-    const [searchQuery, setSearchQuery] = useState("");
-    const { watchlist, fetchWatchlist, userAssets, userPortfolios, fetchUserPortfolios } = usePortfolioStore();
+    const { watchlist, fetchWatchlist, userAssets, userPortfolios, fetchUserPortfolios, fetchUserAssets } = usePortfolioStore();
 
     // Portfolio optimizer state
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [manualDialogOpen, setManualDialogOpen] = useState(false);
 
     // Ticker autocomplete state
     const [suggestions, setSuggestions] = useState<TickerSearchResult[]>([]);
@@ -280,51 +282,6 @@ const BuildPortfolio = () => {
         }
     };
 
-    const handleDelete = async (symbol: string) => {
-        startTransition(async () => {
-            try {
-                await deleteAsset(symbol);
-                await fetchWatchlist();
-                setSelectedTickers(prev => prev.filter(s => s !== symbol));
-                toast.success(`${symbol} removed`);
-            } catch (error) {
-                toast.error("Failed to remove asset");
-            }
-        });
-    };
-
-    const handleClearWatchlist = async () => {
-        startTransition(async () => {
-            try {
-                await clearWatchlist();
-                await fetchWatchlist();
-                setSelectedTickers([]);
-                toast.success("Watchlist cleared");
-            } catch (error) {
-                toast.error("Failed to clear watchlist");
-            }
-        });
-    };
-
-    const handleDeleteSelected = async () => {
-        if (selectedTickers.length === 0) return;
-        startTransition(async () => {
-            try {
-                await deleteMultipleWatchlistItems(selectedTickers);
-                await fetchWatchlist();
-                setSelectedTickers([]);
-                toast.success(`${selectedTickers.length} assets removed`);
-            } catch (error) {
-                toast.error("Failed to remove selected assets");
-            }
-        });
-    };
-
-
-    // const filteredAssets = assets.filter(a =>
-    //     a.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-    // );
-
     return (
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="relative z-20 flex flex-col md:flex-row gap-4 items-end justify-between bg-card/20 backdrop-blur-xl border border-border/50 p-6">
@@ -451,9 +408,20 @@ const BuildPortfolio = () => {
                         )}
                     </Button>
                     <Button
+                        onClick={() => setManualDialogOpen(true)}
+                        disabled={selectedTickers.length === 0}
+                        className="rounded-none bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-widest h-8 px-4 gap-2 shadow-sm"
+                        title={selectedTickers.length === 0 ? "Select 1 or more tickers from watchlist" : "Create portfolio with selected tickers"}
+                    >
+                        <FolderPlus className="w-3.5 h-3.5" />
+                        Create Portfolio {selectedTickers.length > 0 ? `(${selectedTickers.length})` : ""}
+                    </Button>
+                    <Button
                         onClick={handleOpenOptimizer}
                         disabled={selectedTickers.length <= 2}
-                        className="rounded-none bg-primary/90 hover:bg-primary text-primary-foreground font-black text-xs uppercase tracking-widest h-8 px-4 gap-2"
+                        variant="outline"
+                        className="rounded-none border-primary/30 text-primary hover:bg-primary/5 font-black text-xs uppercase tracking-widest h-8 px-4 gap-2"
+                        title={selectedTickers.length <= 2 ? "Requires at least 3 tickers for automated optimizer" : "Run automated portfolio optimization"}
                     >
                         <Zap className="w-3.5 h-3.5" />
                         Build Portfolio
@@ -462,32 +430,18 @@ const BuildPortfolio = () => {
             </div>
             <div className="flex gap-6 items-start">
                 <Card className="bg-card/10 backdrop-blur-md rounded-none border-border/50 shadow-2xl overflow-hidden w-1/3">
-                    <CardHeader className="border-b border-border/50 bg-muted/5 px-2 py-4">
+                    <CardHeader className="border-b border-border/50 bg-muted/5 px-4 py-3">
                         <span className="text-xl font-black tracking-tighter uppercase italic text-primary">Watchlist</span>
-                        <div className="flex flex-col gap-2 w-full">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                                <Input
-                                    placeholder="Search in your list..."
-                                    className="pl-10 rounded-none bg-background/30 border-border/50 text-sm"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                />
-                            </div>
-                        </div>
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">
+                            Select assets to build portfolio
+                        </p>
                     </CardHeader>
                     <CardContent className="p-0">
                         <Watchlist
-                            watchlist={watchlist}
-                            searchQuery={searchQuery}
-                            handleDelete={handleDelete}
-                            handleDeleteSelected={handleDeleteSelected}
-                            handleClearAll={handleClearWatchlist}
-                            isPending={isPending}
                             selectedSymbols={selectedTickers}
                             onSelectionChange={setSelectedTickers}
+                            onCreatePortfolio={() => setManualDialogOpen(true)}
                         />
-
                     </CardContent>
                 </Card>
 
@@ -522,6 +476,21 @@ const BuildPortfolio = () => {
                 result={rebuildResult}
                 portfolioId={portfolio_id}
                 portfolioName={userPortfolios.find(p => p.id === portfolio_id)?.name || ""}
+            />
+
+            {/* Manual Portfolio Creation Dialog */}
+            <ManualPortfolioDialog
+                open={manualDialogOpen}
+                onOpenChange={setManualDialogOpen}
+                selectedSymbols={selectedTickers}
+                watchlist={watchlist as any}
+                userPortfolios={userPortfolios}
+                onPortfolioCreated={async (newId) => {
+                    setPortfolio_id(newId);
+                    await fetchUserPortfolios();
+                    await fetchUserAssets();
+                }}
+                onSelectionClear={() => setSelectedTickers([])}
             />
         </div>
     );

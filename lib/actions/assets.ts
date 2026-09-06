@@ -362,6 +362,141 @@ export async function saveOptimizationToPortfolio(input: SaveOptimizationInput, 
     revalidatePath("/portfolio");
 }
 
+export interface ManualAssetInput {
+    symbol: string;
+    shares: number;
+    avgCostBasis?: number | null;
+    weight?: number | null;
+}
+
+export interface SaveManualPortfolioInput {
+    portfolioId?: number; // -1 for new, > 0 to update existing
+    name: string;
+    assets: ManualAssetInput[];
+    monthlyContribution?: number;
+    targetMonthlyIncome?: number;
+    reinvestDividends?: boolean;
+}
+
+export async function saveManualPortfolio(input: SaveManualPortfolioInput) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) throw new Error("Unauthorized");
+    const userId = (session.user as any).id;
+    if (!userId) throw new Error("Unauthorized");
+
+    const ownerId = parseInt(userId);
+    const ownerName = session.user.name || null;
+
+    if (!input.name?.trim()) {
+        throw new Error("Portfolio name is required");
+    }
+
+    if (!input.assets || input.assets.length === 0) {
+        throw new Error("At least one asset is required");
+    }
+
+    const portfolioId = input.portfolioId ?? -1;
+    let portfolio = null;
+
+    if (portfolioId > 0) {
+        portfolio = await db.query.userPortfolios.findFirst({
+            where: and(
+                eq(userPortfolios.owner_id, ownerId),
+                eq(userPortfolios.id, portfolioId)
+            )
+        });
+    } else {
+        portfolio = await db.query.userPortfolios.findFirst({
+            where: and(
+                eq(userPortfolios.owner_id, ownerId),
+                eq(userPortfolios.name, input.name.trim())
+            )
+        });
+    }
+
+    const totalShares = input.assets.reduce((sum, a) => sum + (a.shares || 0), 0);
+    const totalValue = input.assets.reduce((sum, a) => {
+        const price = a.avgCostBasis || 0;
+        return sum + (a.shares * price);
+    }, 0);
+
+    const weights: Record<string, number> = {};
+    input.assets.forEach(a => {
+        const val = a.shares * (a.avgCostBasis || 0);
+        weights[a.symbol] = totalValue > 0 ? val / totalValue : (1 / input.assets.length);
+    });
+
+    const expectedAnnualReturn = 0.08;
+    const monthlyContrib = input.monthlyContribution || 0;
+    const projections = [1, 3, 5, 10, 15, 20].map(year => {
+        const futureValue = totalValue * Math.pow(1 + expectedAnnualReturn, year) + 
+            (monthlyContrib > 0 ? (monthlyContrib * 12 * ((Math.pow(1 + expectedAnnualReturn, year) - 1) / expectedAnnualReturn)) : 0);
+        return {
+            year,
+            value: Math.round(futureValue),
+            income: Math.round(futureValue * 0.03)
+        };
+    });
+
+    const metrics = {
+        total_value: totalValue,
+        total_shares: totalShares,
+        holdings_count: input.assets.length,
+        monthly_contribution: monthlyContrib,
+        target_monthly_income: input.targetMonthlyIncome || 0,
+        reinvest_dividends: !!input.reinvestDividends,
+        expected_return: expectedAnnualReturn,
+    };
+
+    if (portfolio) {
+        const [updated] = await db.update(userPortfolios).set({
+            name: input.name.trim(),
+            projections: projections as any,
+            metrics: metrics as any,
+            updated_at: new Date(),
+        }).where(eq(userPortfolios.id, portfolio.id)).returning();
+        portfolio = updated;
+    } else {
+        const [created] = await db.insert(userPortfolios).values({
+            owner_id: ownerId,
+            owner_name: ownerName,
+            name: input.name.trim(),
+            projections: projections as any,
+            metrics: metrics as any,
+            performance_tracking: {},
+            updated_at: new Date(),
+        }).returning();
+        portfolio = created;
+    }
+
+    await db.delete(userAssets).where(eq(userAssets.portfolio_id, portfolio.id));
+
+    await Promise.all(
+        input.assets.map((asset) =>
+            db.insert(userAssets).values({
+                symbol: asset.symbol.toUpperCase(),
+                shares: asset.shares,
+                avg_cost_basis: asset.avgCostBasis ?? null,
+                weight: weights[asset.symbol] ?? (asset.weight ?? null),
+                owner_id: ownerId,
+                owner_name: ownerName,
+                portfolio_id: portfolio!.id,
+                updated_at: new Date(),
+            })
+        )
+    );
+
+    revalidatePath("/portfolio");
+
+    return {
+        success: true,
+        portfolio: {
+            id: portfolio.id,
+            name: portfolio.name,
+        }
+    };
+}
+
 export async function deletePortfolio(id: number) {
     const session = await getServerSession(authOptions);
     if (!session?.user) throw new Error("Unauthorized");

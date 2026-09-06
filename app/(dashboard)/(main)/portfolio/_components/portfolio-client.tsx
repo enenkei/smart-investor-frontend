@@ -18,7 +18,7 @@ export default function PortfolioClient() {
     const strategyTickers = new Set(strategies.flatMap(s => s.tickers));
 
     return (
-        <Tabs defaultValue="pre-built" className="w-full">
+        <Tabs defaultValue="manual" className="w-full">
             <div className="flex items-center justify-between mb-6">
                 <TabsList className="bg-card/20 backdrop-blur-xl border border-border/50 p-1 rounded-none">
                     <TabsTrigger

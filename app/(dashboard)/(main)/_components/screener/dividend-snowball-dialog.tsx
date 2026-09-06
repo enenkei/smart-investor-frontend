@@ -43,7 +43,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { getTickerForComparison } from "@/controllers/stock-data-controller";
+import { getTickerForComparison, searchTickersForComparison } from "@/controllers/stock-data-controller";
 import {
   analyzeDividendSnowball,
 } from "@/controllers/ai-controller";
@@ -150,10 +150,49 @@ export function DividendSnowballDialog({
     appreciation: number;
   }) => {
     setTickerSymbol(preset.symbol);
+    setShowSuggestions(false);
     setDividendYieldPct(preset.yield);
     setDividendGrowthRatePct(preset.divGrowth);
     setPriceGrowthRatePct(preset.appreciation);
     setAiAnalysis(null);
+  };
+
+  // Search autocomplete state
+  const [suggestions, setSuggestions] = React.useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const searchContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Search autocomplete for ticker
+  React.useEffect(() => {
+    if (!tickerSymbol || tickerSymbol.trim().length === 0) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const results = await searchTickersForComparison(tickerSymbol);
+      setSuggestions(results);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [tickerSymbol]);
+
+  // Click outside to close suggestions
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelectTicker = (sym: string) => {
+    setTickerSymbol(sym);
+    setShowSuggestions(false);
+    fetchTickerStats(sym);
   };
 
   // Math: Industry-Standard Compounding Simulation
@@ -334,21 +373,52 @@ export function DividendSnowballDialog({
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
               Asset / Presets:
             </span>
-            <div className="flex items-center gap-1.5">
-              <Input
-                value={tickerSymbol}
-                onChange={(e) => setTickerSymbol(e.target.value.toUpperCase())}
-                placeholder="e.g. FEPI, SCHD"
-                className="h-7 w-24 text-xs font-mono font-bold uppercase bg-background/50 border-border/60"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") fetchTickerStats(tickerSymbol);
-                }}
-              />
+            <div ref={searchContainerRef} className="relative flex items-center gap-1.5">
+              <div className="relative">
+                <Input
+                  value={tickerSymbol}
+                  onChange={(e) => {
+                    setTickerSymbol(e.target.value.toUpperCase());
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder="e.g. FEPI, SCHD"
+                  className="h-7 w-28 sm:w-36 text-xs font-mono font-bold uppercase bg-background/50 border-border/60"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setShowSuggestions(false);
+                      fetchTickerStats(tickerSymbol);
+                    }
+                  }}
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full mt-1 left-0 z-50 w-64 bg-popover border border-border/60 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto custom-scrollbar">
+                    {suggestions.map((item) => (
+                      <div
+                        key={item.symbol}
+                        className="px-3 py-2 hover:bg-accent/40 cursor-pointer flex items-center justify-between text-xs"
+                        onClick={() => handleSelectTicker(item.symbol)}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono font-bold text-primary">{item.symbol}</span>
+                          <span className="text-muted-foreground truncate max-w-[120px]">{item.name}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">
+                          {item.type}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button
                 size="sm"
                 variant="secondary"
                 className="h-7 px-2.5 text-xs font-bold"
-                onClick={() => fetchTickerStats(tickerSymbol)}
+                onClick={() => {
+                  setShowSuggestions(false);
+                  fetchTickerStats(tickerSymbol);
+                }}
               >
                 Load
               </Button>
