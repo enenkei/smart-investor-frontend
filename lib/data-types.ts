@@ -57,3 +57,4 @@ export interface Asset {
 
 export const ALPHA_VANTAGE_API = "ALPHA_VANTAGE_API"
 export const AI_MODEL = "GOOGLE_GENERATIVE_MODEL"
+export const BASE_MODAL_URL = "BASE_MODAL_URL"

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const BASE_MODAL_URL = "https://enenkei--portfolio-architect-web.modal.run/";
+import { getBaseModalUrl } from "@/controllers/setting-controller";
 
 export async function POST(req: NextRequest) {
     try {
+        const baseModalUrl = await getBaseModalUrl();
         const body = await req.json();
 
-        let res = await fetch(BASE_MODAL_URL + "track-performance", {
+        let res = await fetch(baseModalUrl + "track-performance", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),

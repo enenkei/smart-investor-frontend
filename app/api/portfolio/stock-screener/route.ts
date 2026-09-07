@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-
-const BASE_MODAL_URL = "https://enenkei--portfolio-architect-web.modal.run/";
+import { getBaseModalUrl } from "@/controllers/setting-controller";
 
 // Self-contained high-performance in-memory cache layer
 let cachedData: any = null;
@@ -16,7 +15,8 @@ export async function GET() {
             return NextResponse.json(cachedData);
         }
 
-        let res = await fetch(BASE_MODAL_URL + "stock-screener", {
+        const baseModalUrl = await getBaseModalUrl();
+        let res = await fetch(baseModalUrl + "stock-screener", {
             method: "GET",
             headers: { "Content-Type": "application/json" },
         });

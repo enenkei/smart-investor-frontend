@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { systemSettings, SystemSetting } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { BASE_MODAL_URL } from "@/lib/data-types";
 
 // XOR-Hex Encryption Logic
 const XOR_KEY = process.env.SETTINGS_ENCRYPTION_KEY || "invest-smarter-fc986e2b75df6f4ec5b2ef67296ec20e";
@@ -16,10 +17,17 @@ function encrypt(text: string): string {
 
 function decrypt(hex: string): string {
     if (!hex) return "";
-    const bytes = hex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
-    return bytes.map((byte, i) => {
-        return String.fromCharCode(byte ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
-    }).join('');
+    if (hex.startsWith("http://") || hex.startsWith("https://") || !/^[0-9a-fA-F]+$/.test(hex)) {
+        return hex;
+    }
+    try {
+        const bytes = hex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [];
+        return bytes.map((byte, i) => {
+            return String.fromCharCode(byte ^ XOR_KEY.charCodeAt(i % XOR_KEY.length));
+        }).join('');
+    } catch {
+        return hex;
+    }
 }
 
 export const getSystemSettings = async (): Promise<SystemSetting[]> => {
@@ -88,3 +96,15 @@ export const getSystemSetting = async (key: string) => {
         throw err;
     }
 }
+
+export const getBaseModalUrl = async (): Promise<string> => {
+    const setting = await getSystemSetting(BASE_MODAL_URL);
+    if (!setting || !setting.value || !setting.value.trim()) {
+        throw new Error("System setting 'BASE_MODAL_URL' is not configured in the database. Please set BASE_MODAL_URL in System Settings.");
+    }
+    let url = setting.value.trim();
+    if (!url.endsWith("/")) {
+        url += "/";
+    }
+    return url;
+};

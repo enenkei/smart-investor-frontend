@@ -58,10 +58,8 @@ const BuildPortfolio = () => {
     const [performanceResult, setPerformanceResult] = useState<any | null>(null);
     const [isTrackingPerformance, setIsTrackingPerformance] = useState(false);
 
-    // Suggest rebuild states
+    // Suggest rebuild state
     const [rebuildDialogOpen, setRebuildDialogOpen] = useState(false);
-    const [rebuildResult, setRebuildResult] = useState<any | null>(null);
-    const [isSuggestingRebuild, setIsSuggestingRebuild] = useState(false);
 
     // Health score check (disable Rebuild if Score >= 85)
     const currentPortfolio = userPortfolios.find(p => p.id === portfolio_id);
@@ -70,61 +68,12 @@ const BuildPortfolio = () => {
         : null;
     const isHealthExcellent = currentScore !== null && currentScore >= 85;
 
-    const handleSuggestRebuild = async () => {
+    const handleSuggestRebuild = () => {
         if (!portfolio_id) {
             toast.error("Please select a portfolio to track performance.");
             return;
         }
-
-        setIsSuggestingRebuild(true);
-        try {
-            const assetsInPortfolio = userAssets.filter(a => a.portfolio_id === portfolio_id);
-            if (assetsInPortfolio.length === 0) {
-                toast.error("The selected portfolio has no assets.");
-                return;
-            }
-
-            const tickers = assetsInPortfolio.map(a => a.symbol);
-            const shares = assetsInPortfolio.map(a => a.shares ?? 0);
-
-            const candidatesData = await getPortfolioCandidates(tickers);
-
-            const formattedCandidates = candidatesData.map(c => ({
-                symbol: c.symbol,
-                total_return: c.total_return,
-                beta: c.beta,
-                asset_type: c.asset_type,
-                dividend_yield: c.dividend_yield
-            }));
-
-            const res = await fetch("/api/portfolio/suggest-rebuild", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    candidates: formattedCandidates,
-                    shares: shares,
-                    target_monthly_income: 100.0,
-                    monthly_contribution: 5000.0,
-                    reinvest_dividend: true
-                }),
-            });
-
-            if (!res.ok) {
-                throw new Error(await res.text());
-            }
-
-            const data = await res.json();
-            if (data.success) {
-                setRebuildResult(data);
-                setRebuildDialogOpen(true);
-            } else {
-                toast.error(data.error || "Suggest rebuild failed");
-            }
-        } catch (err: any) {
-            toast.error(err.message || "Failed to fetch rebalance suggestions");
-        } finally {
-            setIsSuggestingRebuild(false);
-        }
+        setRebuildDialogOpen(true);
     };
 
     const handleTrackPerformance = async () => {
@@ -158,9 +107,8 @@ const BuildPortfolio = () => {
             }
 
             const tickers = assetsInPortfolio.map(a => a.symbol);
-            const shares = assetsInPortfolio.map(a => a.shares ?? 0);
-
             const candidatesData = await getPortfolioCandidates(tickers);
+            const sharesMap = new Map(assetsInPortfolio.map(a => [a.symbol.toUpperCase(), a.shares ?? 0]));
 
             const formattedCandidates = candidatesData.map(c => ({
                 symbol: c.symbol,
@@ -170,13 +118,19 @@ const BuildPortfolio = () => {
                 dividend_yield: c.dividend_yield
             }));
 
+            const shares = formattedCandidates.map(c => sharesMap.get(c.symbol.toUpperCase()) ?? 0);
+
             const res = await fetch("/api/portfolio/track-performance", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     candidates: formattedCandidates,
                     shares: shares,
-                    benchmark: "^GSPC"
+                    benchmark: "^GSPC",
+                    timeframe: "1y",
+                    risk_free_rate: 0.045,
+                    include_chart_data: true,
+                    chart_sample_interval: "1d"
                 }),
             });
 
@@ -396,16 +350,12 @@ const BuildPortfolio = () => {
 
                     <Button
                         onClick={handleSuggestRebuild}
-                        disabled={isSuggestingRebuild || !portfolio_id || isHealthExcellent}
+                        disabled={!portfolio_id || isHealthExcellent}
                         variant="outline"
                         className="rounded-none border-amber-500/30 text-amber-400 hover:bg-amber-500/5 font-black text-xs uppercase tracking-widest h-8 px-4 gap-2"
-                        title={isHealthExcellent ? "Portfolio health is already excellent (Score >= 85). Rebalancing not required." : "Get AI-driven rebalancing suggestion"}
+                        title={isHealthExcellent ? "Portfolio health is already excellent (Score >= 85). Rebalancing not required." : "Configure parameters and get AI-driven rebalancing suggestion"}
                     >
-                        {isSuggestingRebuild ? (
-                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Suggesting...</>
-                        ) : (
-                            <><Scale className="w-3.5 h-3.5" /> Suggest Rebuild</>
-                        )}
+                        <Scale className="w-3.5 h-3.5" /> Suggest Rebuild
                     </Button>
                     <Button
                         onClick={() => setManualDialogOpen(true)}
@@ -465,15 +415,16 @@ const BuildPortfolio = () => {
             <PerformanceTrackerDialog
                 open={performanceDialogOpen}
                 onOpenChange={setPerformanceDialogOpen}
-                result={performanceResult}
+                portfolioId={portfolio_id}
                 portfolioName={userPortfolios.find(p => p.id === portfolio_id)?.name || ""}
+                initialResult={performanceResult}
+                onResultUpdated={(updated) => setPerformanceResult(updated)}
             />
 
             {/* Suggest Rebuild Dialog */}
             <SuggestRebuildDialog
                 open={rebuildDialogOpen}
                 onOpenChange={setRebuildDialogOpen}
-                result={rebuildResult}
                 portfolioId={portfolio_id}
                 portfolioName={userPortfolios.find(p => p.id === portfolio_id)?.name || ""}
             />

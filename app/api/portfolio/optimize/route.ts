@@ -1,13 +1,13 @@
 import { OptimizedPortfolio } from "@/lib/data-types";
 import { NextRequest, NextResponse } from "next/server";
-
-const BASE_MODAL_URL = "https://enenkei--portfolio-architect-web.modal.run/";
+import { getBaseModalUrl } from "@/controllers/setting-controller";
 
 export async function POST(req: NextRequest) {
     try {
+        const baseModalUrl = await getBaseModalUrl();
         const body = await req.json();
 
-        let res = await fetch(BASE_MODAL_URL + "build", {
+        const res = await fetch(baseModalUrl + "build-from-goal", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -15,9 +15,10 @@ export async function POST(req: NextRequest) {
         if (!res.ok) {
             throw new Error(await res.text());
         }
-        const optimizedPortfolio: OptimizedPortfolio = await res.json();
+        const data = await res.json();
+        const optimizedPortfolio: OptimizedPortfolio = data.optimizedPortfolio || data;
 
-        return NextResponse.json({ optimizedPortfolio });
+        return NextResponse.json({ optimizedPortfolio, ...data });
     } catch (err: any) {
         return NextResponse.json(
             { error: err.message },
