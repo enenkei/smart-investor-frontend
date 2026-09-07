@@ -7,7 +7,12 @@ export async function POST(req: NextRequest) {
         const baseModalUrl = await getBaseModalUrl();
         const body = await req.json();
 
-        const res = await fetch(baseModalUrl + "build-from-goal", {
+        const endpoint =
+            body.candidates && Array.isArray(body.candidates) && body.candidates.length > 0
+                ? "build"
+                : "build-from-goal";
+
+        const res = await fetch(baseModalUrl + endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),

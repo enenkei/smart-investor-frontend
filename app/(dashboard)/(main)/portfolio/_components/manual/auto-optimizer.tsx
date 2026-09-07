@@ -27,14 +27,24 @@ const AutoOptimizer = (props: AutoOptimizerProps) => {
                     {
                         icon: <TrendingUp className="w-4 h-4" />,
                         label: "Expected Return",
-                        value: `${(optimizationResult.metrics.expected_return * 100).toFixed(2)}%`,
+                        value: (() => {
+                            const v = optimizationResult.metrics.expected_return;
+                            if (v == null || isNaN(v)) return "0.00%";
+                            const pct = Math.abs(v) <= 1.0 ? v * 100 : v;
+                            return `${pct.toFixed(2)}%`;
+                        })(),
                         color: "text-emerald-400",
                         bg: "bg-emerald-500/10 border-emerald-500/20"
                     },
                     {
                         icon: <Activity className="w-4 h-4" />,
                         label: "Volatility",
-                        value: `${(optimizationResult.metrics.volatility * 100).toFixed(2)}%`,
+                        value: (() => {
+                            const v = optimizationResult.metrics.volatility;
+                            if (v == null || isNaN(v)) return "0.00%";
+                            const pct = Math.abs(v) <= 1.0 ? v * 100 : v;
+                            return `${pct.toFixed(2)}%`;
+                        })(),
                         color: "text-amber-400",
                         bg: "bg-amber-500/10 border-amber-500/20"
                     },

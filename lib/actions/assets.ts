@@ -215,13 +215,8 @@ export type PortfolioCandidate = {
 };
 
 export async function getPortfolioCandidates(tickers: string[]): Promise<PortfolioCandidate[]> {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return [];
-    const userId = (session.user as any).id;
-    if (!userId) return [];
-
     const symbols = tickers;
-    if (symbols.length === 0) return [];
+    if (!symbols || symbols.length === 0) return [];
 
     const [fundamentalsList, etfsList] = await Promise.all([
         db.select({
